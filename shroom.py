@@ -76,10 +76,10 @@ class ShroomFarm:
   def get_farm(self, farm_id: int) -> Farm | None:
     return self.farms.get(farm_id)
 
-  async def create_farm(self, server_id: int):
+  async def create_farm(self, server_id: int, channel: int | None = None):
     if self.get_farm(server_id) is not None:
       raise ValueError(f"farm with ID `{server_id}` already exists")
-    farm = Farm(server_id)
+    farm = Farm(server_id, farm_channel=channel)
     self.farms[server_id] = farm
     await self.farm_db.insert_one(farm.to_dict())
 
