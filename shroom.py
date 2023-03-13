@@ -46,8 +46,9 @@ class Farm:
 
 
 class ShroomFarm:
-  def __init__(self):
-    self._db_client = motor_asyncio.AsyncIOMotorClient()
+  def __init__(self, url: str = "localhost"):
+    self.db_url = url
+    self._db_client = motor_asyncio.AsyncIOMotorClient(url)
     self.shroom_db: motor_asyncio.AsyncIOMotorDatabase = self._db_client["ShroomDB"]
 
     self.farm_db: motor_asyncio.AsyncIOMotorCollection = self.shroom_db["Farm"]
