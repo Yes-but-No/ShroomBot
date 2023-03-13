@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 DEV_SERVER = discord.Object(id=os.getenv("DEV_SERVER_ID"))
 SHROOM_RESET_TIME = datetime.time(hour=0, minute=0, tzinfo=datetime.timezone.utc)
+DATABASE_URL = os.getenv("MONGO_URL")
 
 def int_to_ordinal(n: int) -> str:
   s = str(n)
@@ -47,7 +48,7 @@ def get_farm_stats_embed(farm: Farm, server: discord.Guild) -> discord.Embed:
 
 class ShroomBot(commands.Bot):
   def __init__(self, *args, **kwargs):
-    self.shroom_farm = ShroomFarm()
+    self.shroom_farm = ShroomFarm(DATABASE_URL)
     self.owner_ids = (751768586699276342, 759195783597129760)
     self._lock = asyncio.Lock()
     super().__init__(*args, **kwargs)
