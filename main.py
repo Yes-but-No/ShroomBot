@@ -61,6 +61,7 @@ class ShroomBot(commands.Bot):
   async def setup_hook(self) -> None:
     await self.shroom_farm.load_farms()
     await self.shroom_farm.reset_daily_count()
+    self.reset_count_loop.start()
 
     self.tree.copy_global_to(guild=DEV_SERVER)
     await self.tree.sync(guild=DEV_SERVER)
