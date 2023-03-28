@@ -1,6 +1,6 @@
 from __future__ import annotations
-import asyncio
 
+import asyncio
 import datetime
 import os
 from typing import TYPE_CHECKING
@@ -13,6 +13,7 @@ from shroom import ShroomFarm
 
 if TYPE_CHECKING:
   from discord import Message
+
   from shroom import Farm
 
 DEV_SERVER = discord.Object(id=os.getenv("DEV_SERVER_ID"))
