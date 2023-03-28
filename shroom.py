@@ -1,4 +1,6 @@
 from __future__ import annotations
+from collections import Counter
+from operator import itemgetter
 
 from typing import TYPE_CHECKING
 
@@ -10,7 +12,7 @@ from user import User
 
 if TYPE_CHECKING:
   from id_types import ServerID, UserID, ChannelID
-  from stats import DailyStatsDict
+  from stats import DailyStatsDict, DailyFarmStatsDict
 
 
 class ShroomFarm:
@@ -124,7 +126,7 @@ class ShroomFarm:
       return DailyStats(**stats)
     
   async def insert_daily_stats(self, stats: DailyStats):
-    await self.stats_db.insert_one(DailyStats.to_dict())
+    await self.stats_db.insert_one(stats.to_dict())
 
   async def clear_daily_stats(self):
     """|coro|
@@ -137,14 +139,16 @@ class ShroomFarm:
     """
     await self.stats_db.delete_many({}) # rip
 
-  async def get_weekly_total_farmed(self) -> int:
+
+  async def get_total_weekly_farmed(self) -> int:
     total = self.daily_stats.total
     async for stat in self.stats_db.find({}, projection=("total",)):
       total += stat["total"]
     return total
   
   async def get_server_weekly_farmed(self, farm_id: ServerID) -> int:
-    total = self.daily_stats.get_farm_stats(farm_id).farmed
+    farm_stats = self.daily_stats.get_farm_stats(farm_id)
+    total = farm_stats.farmed if farm_stats is not None else 0
     async for farm_stats in self.stats_db.find({}, projection=("farms",)):
       farm_stats = farm_stats.get(farm_id)
       if farm_stats is None:
@@ -158,9 +162,33 @@ class ShroomFarm:
     async for user_stats in self.stats_db.find({}, projection=("users",)):
       total += user_stats.get(user_id, 0)
     return total
+
+
+  async def get_server_contributors(self, farm_id: ServerID) -> dict[UserID, int]:
+    farm_stats = self.daily_stats.get_farm_stats(farm_id)
+    if farm_stats is None:
+      contributors = Counter()
+    else:
+      contributors = Counter(farm_stats.contributors)
+    async for farm_stats in self.stats_db.find({}, projection=("farms",)):
+      farm_stats = farm_stats.get(farm_id)
+      if farm_stats is None:
+        continue
+      else:
+        contributors.update(farm_stats["contributors"])
+    return dict(contributors)
   
-  async def get_server_top_contributors(self, farm_id: ServerID, limit: int = 10) -> dict[UserID, int]
+  def get_server_top_daily_contributors(self, farm_id: ServerID, limit: int = 10) -> dict[UserID, int]:
+    farm_stats = self.daily_stats.get_farm_stats(farm_id)
+    if farm_stats is None:
+      return dict()
+    contributors = farm_stats.contributors
+    return dict(sorted(contributors.items(), key=itemgetter(1), reverse=True))
   
+  async def get_server_top_weekly_contributors(self, farm_id: ServerID, limit: int = 10) -> dict[UserID, int]:
+    contributors = await self.get_server_contributors(farm_id)
+    return dict(sorted(contributors.items(), key=itemgetter(1), reverse=True))
+
 
 
   async def farm(self, server_id: ServerID, user_id: UserID) -> int:
