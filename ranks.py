@@ -10,7 +10,7 @@ from dataclasses import dataclass
 @dataclass
 class Rank:
   name: str
-  requirement: int | None
+  requirement: int
 
 RANKS = (
   Rank("Shroom Forager", 0),
@@ -27,6 +27,5 @@ RANKS = (
   Rank("Truffle King/Queen", 100000),
   Rank("Fungi Overlord", 250000),
   Rank("Mycology Mogul", 500000),
-  Rank("Shroom Deity", 1000000),
-  Rank("MUSHROOM GOD", None)
+  Rank("Shroom Deity", 1000000)
 )
