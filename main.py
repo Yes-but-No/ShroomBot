@@ -21,7 +21,9 @@ SHROOM_RESET_TIME = datetime.time(hour=0, minute=0, tzinfo=datetime.timezone.utc
 
 def int_to_ordinal(n: int) -> str:
   s = str(n)
-  if s[-1] == "1":
+  if len(s) == 2 and s[0] == "1":
+    s += "th"
+  elif s[-1] == "1":
     s += "st"
   elif s[-1] == "2":
     s += "nd"
