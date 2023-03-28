@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TypedDict, TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from ranks import RANKS
 
@@ -42,3 +42,21 @@ class User:
       return None
     else:
       return RANKS[self.rank_enum+1]
+    
+  @property
+  def ranked_up(self) -> bool:
+    if self.next_rank is None:
+      return False
+    else:
+      return self.farmed >= self.next_rank.requirement
+    
+  def to_dict(self, include_id=True) -> UserDict:
+    d = {
+      "joined": self.joined,
+      "farmed": self.farmed,
+      "tokens": self.tokens,
+      "rank_enum": self.rank_enum
+    }
+    if include_id:
+      d["_id"] = self._id
+    return d
