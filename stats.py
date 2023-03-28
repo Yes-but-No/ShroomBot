@@ -18,7 +18,7 @@ class DailyStatsDict(TypedDict):
   date: datetime
   total: int
   farms: dict[ServerID, DailyFarmStatsDict]
-  users: dict[UserID: int]
+  users: dict[UserID, int]
 
 
 
@@ -33,6 +33,7 @@ class DailyFarmStats:
     return {
       "id": self.id,
       "farmed": self.farmed,
+      "daily_goal_reached": self.daily_goal_reached,
       "contributors": self.contributors
     }
 
