@@ -1,7 +1,10 @@
+"""
+Literal hard-coded ranks for the bot
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import inf
 
 
 @dataclass
