@@ -25,27 +25,14 @@ class FarmDict(TypedDict):
 @dataclass
 class Farm:
   _id: ServerID
-  farmed_today: int = 0
   total_farmed: int = 0
   last_farmer: UserID | None = None
   farm_channel: ChannelID | None = None
   daily_goal: int | None = None
   updated: datetime = datetime.utcnow()
 
-  @property
-  def daily_goal_reached(self) -> bool:
-    """If the daily goal has been reached.
-    Returns `False` if there is no daily goal set
-    """
-    return (
-      self.farmed_today >= self.daily_goal
-      if self.daily_goal is not None
-      else False
-    )
-
   def to_dict(self, include_id=True, include_time=True) -> FarmDict:
     d = {
-      "farmed_today": self.farmed_today,
       "total_farmed": self.total_farmed,
       "last_farmer": self.last_farmer,
       "farm_channel": self.farm_channel
