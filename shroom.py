@@ -2,7 +2,7 @@ from __future__ import annotations
 from collections import Counter
 from operator import itemgetter
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from motor import motor_asyncio
 
@@ -12,7 +12,11 @@ from user import User
 
 if TYPE_CHECKING:
   from id_types import ServerID, UserID, ChannelID
-  from stats import DailyStatsDict, DailyFarmStatsDict
+  from stats import DailyStatsDict, DailyFarmStats
+
+class FarmResultsDict(TypedDict):
+  farm_stats: DailyFarmStats
+  user: User
 
 
 class ShroomFarm:
@@ -25,16 +29,11 @@ class ShroomFarm:
     self.user_db: motor_asyncio.AsyncIOMotorCollection = self.shroom_db["Users"]
     self.stats_db: motor_asyncio.AsyncIOMotorCollection = self.shroom_db["Stats"]
 
-    self.farms: dict[ServerID, Farm] = {}
     self.daily_stats: DailyStats = DailyStats()
 
   ##################################
   ### Server Collection Operations
   ##################################
-
-  async def load_farms(self): # since all database lookup calls are async, we cant do it in __init__
-    async for farm in self.farm_db.find({}):
-      self.farms[farm["_id"]] = Farm(**farm)
 
   async def save_farm(self, farm: Farm) -> bool:
     result = await self.farm_db.update_one(
@@ -48,39 +47,36 @@ class ShroomFarm:
     )
     return result.modified_count == 1
 
-  def get_farm(self, farm_id: int) -> Farm | None:
-    return self.farms.get(farm_id)
+  async def get_farm(self, farm_id: int) -> Farm | None:
+    d = await self.farm_db.find_one({"_id": farm_id})
+    if d is None:
+      return None
+    return Farm(**d)
 
-  async def create_farm(self, server_id: ServerID, channel: ChannelID | None = None):
+  async def create_farm(self, server_id: ServerID, channel: ChannelID | None = None) -> Farm:
     if self.get_farm(server_id) is not None:
       raise ValueError(f"farm with ID `{server_id}` already exists")
     farm = Farm(server_id, farm_channel=channel)
-    self.farms[server_id] = farm
     await self.farm_db.insert_one(farm.to_dict())
+    return farm
 
   async def set_farm_channel(self, farm_id: ServerID, channel_id: ChannelID):
-    farm = self.get_farm(farm_id)
+    farm = await self.get_farm(farm_id)
     if farm is None:
       raise ValueError(f"server with ID `{farm_id}` does not exist")
     farm.farm_channel = channel_id
     await self.save_farm(farm)
-  
-  async def reset_daily_count(self):
-    for farm in self.farms.values():
-      farm.farmed_today = 0
-    await self.farm_db.update_many({}, {"$set": {"farmed_today": 0}})
+
+  async def set_daily_goal(self, farm_id: ServerID, daily_goal: int | None):
+    farm = await self.get_farm(farm_id)
+    if farm is None:
+      raise ValueError(f"server with ID `{farm_id}` does not exist")
+    farm.daily_goal = daily_goal
+    await self.save_farm(farm)
 
   ################################
   ### User Collection Operations
   ################################
-
-  async def get_user(self, user_id: UserID) -> User | None:
-    return User(**await self.user_db.find_one({"_id": user_id}))
-
-  async def create_user(self, user_id: UserID):
-    if await self.get_user(user_id) is not None:
-      raise ValueError(f"user with ID `{user_id}` already exists")
-    await self.user_db.insert_one(User(user_id).to_dict())
 
   async def save_user(self, user: User) -> bool:
     result = await self.farm_db.update_one(
@@ -92,22 +88,44 @@ class ShroomFarm:
       }
     )
     return result.modified_count == 1
+
+  async def get_user(self, user_id: UserID) -> User | None:
+    d = await self.user_db.find_one({"_id": user_id})
+    if d is None:
+      return None
+    return User(**d)
+
+  async def create_user(self, user_id: UserID) -> User:
+    if await self.get_user(user_id) is not None:
+      raise ValueError(f"user with ID `{user_id}` already exists")
+    user = User(user_id)
+    await self.user_db.insert_one(user.to_dict())
+    return user
   
   async def inc_user_farmed(self, user_id: UserID, amount: int = 1) -> bool:
     result = await self.user_db.update_one({"_id": user_id}, {"$inc": {"farmed": amount}})
     return result.modified_count == 1
   
+  async def inc_user_tokens(self, user_id: UserID, tokens: int = 1) -> bool:
+    result = await self.user_db.update_one({"_id": user_id}, {"$inc": {"tokens": tokens}})
+    return result.modified_count == 1
+  
+  async def user_farm(self, user_id: UserID, amount: int = 1) -> bool:
+    result = await self.user_db.update_one({"_id": user_id}, {"$inc": {"farmed": amount, "tokens": amount}})
+    return result.modified_count == 1
+  
   async def set_user_tokens(self, user_id: UserID, tokens: int | None = None) -> bool:
-    """
-    Set the number of shroom tokens a user has
-    If you wish to change it directly rather than changing the `User` object,
-    use the `tokens` parameter.
+    """|coro|
+
+    Directly set the number of tokens a user has.
+    NOTE: This does not check if the user exists in the database
     """
     result = await self.user_db.update_one({"_id": user_id}, {"$set": {"tokens": tokens}})
     return result.modified_count == 1
   
   async def rank_up_user(self, user_id: UserID) -> bool:
-    """
+    """|coro|
+
     Increases the user's rank by 1
     NOTE: This does not implement any check to see if the user is already at the max rank
     """
@@ -134,8 +152,6 @@ class ShroomFarm:
     Removes all documents in the `Stats` collection
     WARNING: This function is extremely destructive and will wipe out
     1 week's worth of farming data.
-    This is only here to reset the `Stats` collection completely when the bot restarts
-    which will only happen once a month due to limitations with free hosting.
     """
     await self.stats_db.delete_many({}) # rip
 
@@ -191,18 +207,21 @@ class ShroomFarm:
 
 
 
-  async def farm(self, server_id: ServerID, user_id: UserID) -> int:
+  async def award_contributors(self, farm_stats: DailyFarmStats):
+    for user_id, amount in farm_stats.contributors.items():
+      await self.inc_user_tokens(user_id, amount)
 
-    farm = self.farms[server_id]
-    farm.total_farmed += 1
-    farm.farmed_today += 1
+  async def farm(self, farm: Farm, user_id: UserID, amount: int = 1) -> FarmResultsDict:
+
+    farm_stats = self.daily_stats.inc_shroom_count(farm, user_id, amount)
+
+    farm.total_farmed += amount
     farm.last_farmer = user_id
     
     # Why do I do this
-    if await self.get_user(user_id) is None:
-      await self.create_user(user_id)
-    await self.inc_user_farmed(user_id)
+    user = await self.get_user(user_id) or await self.create_user(user_id)
+    await self.user_farm(user_id)
 
     await self.save_farm(farm)
 
-    return farm.farmed_today
+    return {"farm_stats": farm_stats, "user": user}
