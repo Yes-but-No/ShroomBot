@@ -5,13 +5,14 @@ from datetime import datetime, date
 from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
+  from farm import Farm
   from id_types import ServerID, UserID
 
 
 class DailyFarmStatsDict(TypedDict):
   id: ServerID
   farmed: int
-  daily_goal_reached: bool
+  daily_goal: int | None
   contributors: dict[UserID, int]
 
 class DailyStatsDict(TypedDict):
@@ -26,14 +27,25 @@ class DailyStatsDict(TypedDict):
 class DailyFarmStats:
   id: ServerID
   farmed: int = 0
-  daily_goal_reached: bool = False
+  daily_goal: int | None = None
   contributors: dict[UserID, int] = {}
+
+  @property
+  def daily_goal_reached(self) -> bool:
+    """If the daily goal has been reached.
+    Returns `False` if there is no daily goal set
+    """
+    return (
+      self.farmed >= self.daily_goal
+      if self.daily_goal is not None
+      else False
+    )
 
   def to_dict(self) -> DailyFarmStatsDict:
     return {
       "id": self.id,
       "farmed": self.farmed,
-      "daily_goal_reached": self.daily_goal_reached,
+      "daily_goal": self.daily_goal,
       "contributors": self.contributors
     }
 
@@ -60,25 +72,24 @@ class DailyStats:
   def get_user_farmed(self, user_id: UserID) -> int:
     return self.users.get(user_id, 0)
   
-  def set_daily_goal_reached(self, farm_id: ServerID):
-    self.farms[farm_id]["daily_goal_reached"] = True
-  
-  def inc_shroom_count(self, farm_id: ServerID, user_id: UserID, amount: int = 1):
+  def inc_shroom_count(self, farm: Farm, user_id: UserID, amount: int = 1) -> DailyFarmStats:
     self.total += amount
 
-    farm_stat = self.get_farm_stats(farm_id) or DailyFarmStats(farm_id)
-    farm_stat.farmed += amount
-    if not farm_stat.daily_goal_reached:
+    farm_stats = self.get_farm_stats(farm._id) or DailyFarmStats(farm._id, daily_goal=farm.daily_goal)
+    farm_stats.farmed += amount
+    if not farm_stats.daily_goal_reached and farm_stats.daily_goal is not None:
       try:
-        farm_stat.contributors[user_id] += amount
+        farm_stats.contributors[user_id] += amount
       except KeyError:
-        farm_stat.contributors[user_id] = amount
-    self.farms[farm_id] = farm_stat.to_dict()
+        farm_stats.contributors[user_id] = amount
+    self.farms[farm._id] = farm_stats.to_dict()
 
     try:
       self.users[user_id] += amount
     except KeyError:
       self.users[user_id] = amount
+
+    return farm_stats
 
   def to_dict(self) -> DailyStatsDict:
     return {
