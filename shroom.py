@@ -29,7 +29,12 @@ class ShroomFarm:
     self.user_db: motor_asyncio.AsyncIOMotorCollection = self.shroom_db["Users"]
     self.stats_db: motor_asyncio.AsyncIOMotorCollection = self.shroom_db["Stats"]
 
-    self.daily_stats: DailyStats = DailyStats()
+  async def setup(self):
+    latest_stats = await self.get_latest_daily_stats()
+    if latest_stats is not None and latest_stats.is_today:
+      self.daily_stats = latest_stats
+    else:
+      self.daily_stats = DailyStats()
 
   ##################################
   ### Server Collection Operations
@@ -143,8 +148,13 @@ class ShroomFarm:
     else:
       return DailyStats(**stats)
     
-  async def insert_daily_stats(self, stats: DailyStats):
-    await self.stats_db.insert_one(stats.to_dict())
+  async def save_daily_stats(self, stats: DailyStats):
+    latest_stats = await self.get_latest_daily_stats()
+    if latest_stats is not None and latest_stats.is_today:
+      return
+    else:
+      await self.stats_db.insert_one(stats.to_dict())
+      self.daily_stats = DailyStats()
 
   async def clear_daily_stats(self):
     """|coro|
@@ -155,6 +165,22 @@ class ShroomFarm:
     """
     await self.stats_db.delete_many({}) # rip
 
+  async def update_daily_stats(self):
+    if self.daily_stats.date == 6:
+      # If it's a Sunday, we have to clear the `Stats` collection
+      await self.clear_daily_stats()
+    else:
+      await self.save_daily_stats(self.daily_stats)
+    self.daily_stats = DailyStats()
+
+
+  def get_server_farmed_today(self, farm_id: ServerID) -> int:
+    farm_stats = self.daily_stats.get_farm_stats(farm_id)
+    return  farm_stats.farmed if farm_stats is not None else 0
+  
+  def get_user_farmed_today(self, user_id: UserID) -> int:
+    return self.daily_stats.get_user_farmed(user_id)
+
 
   async def get_total_weekly_farmed(self) -> int:
     total = self.daily_stats.total
@@ -163,8 +189,7 @@ class ShroomFarm:
     return total
   
   async def get_server_weekly_farmed(self, farm_id: ServerID) -> int:
-    farm_stats = self.daily_stats.get_farm_stats(farm_id)
-    total = farm_stats.farmed if farm_stats is not None else 0
+    total = self.get_server_farmed_today(farm_id)
     async for farm_stats in self.stats_db.find({}, projection=("farms",)):
       farm_stats = farm_stats.get(farm_id)
       if farm_stats is None:
