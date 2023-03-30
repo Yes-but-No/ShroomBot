@@ -59,4 +59,4 @@ class User:
     }
     if include_id:
       d["_id"] = self._id
-    return d
+    return d # type: ignore

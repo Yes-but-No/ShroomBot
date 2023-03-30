@@ -41,4 +41,4 @@ class Farm:
       d["_id"] = self._id
     if include_time:
       d["updated"] = self.updated
-    return d
+    return d # type: ignore
