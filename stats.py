@@ -28,6 +28,7 @@ class DailyFarmStats:
   id: ServerID
   farmed: int = 0
   daily_goal: int | None = None
+  awarded_daily: bool = False # This is needed to ensure we don't award contributors twice
   contributors: dict[UserID, int] = {}
 
   @property
