@@ -125,4 +125,10 @@ async def user_stats(interaction: discord.Interaction, member: discord.Member):
     embed.set_footer(text="Started farming")
   await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="mini")
+@app_commands.describe(channel="What does this even do??")
+async def mini(interaction: discord.Interaction):
+  """Random code which does something"""
+  await interaction.response.send_message("This command was developed by mini")
+
 bot.run(os.getenv("TOKEN")) # type: ignore
