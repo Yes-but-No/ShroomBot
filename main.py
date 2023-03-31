@@ -8,10 +8,14 @@ from discord import app_commands
 from discord.ext import commands
 
 from bot import ShroomBot
+from utils import int_to_ordinal
 
 
 bot = ShroomBot(command_prefix="$", help_command=None, intents=discord.Intents.all(), owner_ids=(751768586699276342, 759195783597129760))
 
+#########################
+### Text Debug Commands
+#########################
 
 @bot.command(hidden=True)
 @commands.is_owner()
@@ -25,6 +29,79 @@ async def show_server_stats(ctx: commands.Context, server_id: int):
   if farm_stats is not None:
     await ctx.reply(str(farm_stats))
 
+@bot.command(hidden=True)
+@commands.is_owner()
+async def show_user_info(ctx: commands.Context, user_id: int | None = None):
+  if user_id is None:
+    user_id = ctx.author.id
+  user_info = await bot.shroom_farm.get_user(user_id) # type: ignore
+  if user_info is not None:
+    await ctx.reply(str(user_info))
+
+@bot.command(hidden=True)
+@commands.is_owner()
+@commands.guild_only()
+async def farm(ctx: commands.Context, amount: int, user_id: int | None = None):
+  if user_id is None:
+    user_id = ctx.author.id
+
+  farm = await bot.shroom_farm.get_farm(ctx.guild.id) # type: ignore
+
+  if farm is None:
+    return
+
+  result = await bot.shroom_farm.farm(farm, user_id, amount) # type: ignore
+
+  farm_stats = result["farm_stats"]
+
+  embeds = []
+
+  embed = discord.Embed(
+    title="Mushroom farmed!",
+    description=f"{int_to_ordinal(farm_stats.farmed)} mushroom farmed today!",
+    colour=discord.Colour.green()
+  )
+  # If we have not reached daily goal, show how many more to the daily goal
+  if (
+    not farm_stats.daily_goal_reached
+    and farm_stats.daily_goal is not None
+  ):
+    embed.description += f"\n{farm_stats.daily_goal-farm_stats.farmed} more mushrooms till the daily goal!" # type: ignore
+  
+  embeds.append(embed)
+
+  # Check if server has reached daily goal
+  if all((
+    farm_stats.daily_goal is not None,
+    farm_stats.daily_goal_reached,
+    not farm_stats.awarded_daily
+  )):
+    await bot.shroom_farm.award_contributors(farm_stats)
+    embeds.append(
+      discord.Embed(
+        title="Daily goal reached!",
+        description="All contributors have been awarded double Shroom Tokens!",
+        colour=discord.Colour.green()
+      )
+    )
+
+  # Check if user has ranked up
+  user = result["user"]
+  if user.ranked_up:
+    await bot.shroom_farm.rank_up_user(user._id)
+    embeds.append(
+      discord.Embed(
+        title=f"{ctx.author.name} ranked up!",
+        description=f"Your rank is now `{user.next_rank.name}`!", # type: ignore
+        colour=discord.Colour.green()
+      )
+    )
+  
+  await ctx.reply(embeds=embeds)
+
+###############################
+### Game Application Commands
+###############################
 
 @bot.tree.command(name="setup")
 @app_commands.describe(channel="The channel where you want mushrooms to be farmed")
@@ -165,11 +242,14 @@ async def user_stats(interaction: discord.Interaction, member: discord.Member):
     embed.set_footer(text="Started farming")
   await interaction.response.send_message(embed=embed)
 
-
+###############################
+### Misc Application Commands
+###############################
 
 @bot.tree.command(name="mini")
 async def mini(interaction: discord.Interaction):
   """What does this even do??"""
   await interaction.response.send_message("This command was developed by mini")
+
 
 bot.run(os.getenv("TOKEN")) # type: ignore

@@ -85,7 +85,7 @@ class ShroomFarm:
   ################################
 
   async def save_user(self, user: User) -> bool:
-    result = await self.farm_db.update_one(
+    result = await self.user_db.update_one(
       {
         "_id": user._id
       },
@@ -114,10 +114,6 @@ class ShroomFarm:
   
   async def inc_user_tokens(self, user_id: UserID, tokens: int = 1) -> bool:
     result = await self.user_db.update_one({"_id": user_id}, {"$inc": {"tokens": tokens}})
-    return result.modified_count == 1
-  
-  async def user_farm(self, user_id: UserID, amount: int = 1) -> bool:
-    result = await self.user_db.update_one({"_id": user_id}, {"$inc": {"farmed": amount, "tokens": amount}})
     return result.modified_count == 1
   
   async def set_user_tokens(self, user_id: UserID, tokens: int | None = None) -> bool:
@@ -248,7 +244,9 @@ class ShroomFarm:
     
     # Why do I do this
     user = await self.get_user(user_id) or await self.create_user(user_id)
-    await self.user_farm(user_id)
+    user.farmed += amount
+    user.tokens += amount
+    await self.save_user(user)
 
     await self.save_farm(farm)
 

@@ -4,27 +4,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, date
 from typing import TYPE_CHECKING, Any, Callable, TypedDict
 
+from utils import str_key_to_int, int_key_to_str
+
 if TYPE_CHECKING:
   from dataclasses import Field
 
   from farm import Farm
   from id_types import ServerID, UserID
-
-
-def str_key_to_int(d: dict):
-  return {int(k): v for k, v in d.items()}
-
-def int_key_to_str(d: dict):
-  return {str(k): v for k, v in d.items()}
-
-def factory_field(factory: Callable, **kwargs) -> Field:
-  return field(
-    metadata={
-      "factory": factory
-    },
-    **kwargs
-  )
-
 
 class DailyFarmStatsDict(TypedDict):
   id: ServerID

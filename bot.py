@@ -9,26 +9,13 @@ import discord
 from discord.ext import commands, tasks
 
 from shroom import ShroomFarm
+from utils import int_to_ordinal
 
 if TYPE_CHECKING:
   from discord import Message
 
 DEV_SERVER = discord.Object(id=os.getenv("DEV_SERVER_ID")) # type: ignore
 SHROOM_RESET_TIME = datetime.time(hour=0, minute=0, tzinfo=datetime.timezone.utc)
-
-def int_to_ordinal(n: int) -> str:
-  s = str(n)
-  if len(s) == 2 and s[0] == "1":
-    s += "th"
-  elif s[-1] == "1":
-    s += "st"
-  elif s[-1] == "2":
-    s += "nd"
-  elif s[-1] == "3":
-    s += "rd"
-  else:
-    s += "th"
-  return s
 
 
 
@@ -135,8 +122,6 @@ class ShroomBot(commands.Bot):
         
         embeds.append(embed)
 
-        print(farm_stats)
-
         # Check if server has reached daily goal
         if all((
           farm_stats.daily_goal is not None,
@@ -158,8 +143,9 @@ class ShroomBot(commands.Bot):
           await self.shroom_farm.rank_up_user(user._id)
           embeds.append(
             discord.Embed(
-              title=f"<@{user._id}> ranked up!",
-              description=f"Your rank is now `{user.next_rank.name}`!" # type: ignore
+              title=f"{message.author.name} ranked up!",
+              description=f"Your rank is now `{user.next_rank.name}`!", # type: ignore
+              colour=discord.Colour.green()
             )
           )
         
