@@ -35,8 +35,8 @@ def int_to_ordinal(n: int) -> str:
 class ShroomBot(commands.Bot):
   def __init__(self, *args, **kwargs):
     self.shroom_farm = ShroomFarm()
-    self.owner_ids = (751768586699276342, 759195783597129760)
     self._lock = asyncio.Lock()
+    self.presence_selector = True
     super().__init__(*args, **kwargs)
 
   @tasks.loop(time=SHROOM_RESET_TIME)
@@ -44,16 +44,52 @@ class ShroomBot(commands.Bot):
     async with self._lock:
       await self.shroom_farm.update_daily_stats()
 
+  @tasks.loop(minutes=1)
+  async def update_presence_loop(self):
+    if self.presence_selector:
+      n = await self.shroom_farm.get_total_weekly_farmed() # technically we could just cache this and just add total to it
+      msg = f"{n} mushrooms farmed this week"              # but I'm too lazy
+    else:
+      n = self.shroom_farm.daily_stats.total
+      msg = f"{n} mushrooms farmed today"
+    self.presence_selector = not self.presence_selector
+    await self.change_presence(activity=discord.Game(name=msg))
+
+  @update_presence_loop.before_loop
+  async def before_presence_loop(self):
+    await self.wait_until_ready()
+
   async def setup_hook(self) -> None:
     await self.shroom_farm.setup()
 
     # This might be a problem if the bot is started at exactly
     # 12am which could make an empty `DailyStats` object be inserted
     # into the database, but I'm sure it's fine...
-    await self.update_stats_loop.start()
+    self.update_stats_loop.start()
+    self.update_presence_loop.start()
 
     self.tree.copy_global_to(guild=DEV_SERVER)
     await self.tree.sync(guild=DEV_SERVER)
+
+  async def on_command_error(self, context: commands.Context[ShroomBot], exception: commands.errors.CommandError, /) -> None:
+    if isinstance(
+      exception,
+      (
+        commands.UserInputError,
+        commands.CheckFailure,
+        commands.CommandNotFound,
+        discord.app_commands.MissingPermissions
+      )
+    ):
+      await context.reply(
+        embed=discord.Embed(
+          title="Error!",
+          description=str(exception),
+          colour=discord.Colour.red()
+        )
+      )
+    else:
+      return await super().on_command_error(context, exception)
 
   async def on_message(self, message: Message):
     if message.author.bot:
@@ -78,32 +114,41 @@ class ShroomBot(commands.Bot):
           colour=discord.Colour.red()
         )
       else:
-        result = await self.shroom_farm.farm(message.guild.id, message.author.id) # type: ignore
+        result = await self.shroom_farm.farm(farm, message.author.id) # type: ignore
         await message.add_reaction("🍄")
 
         farm_stats = result["farm_stats"]
 
         embeds = []
-        embeds.append(
-          discord.Embed(
-            title="Mushroom farmed!",
-            description=f"{int_to_ordinal(farm_stats.farmed)} mushroom farmed today!",
-            colour=discord.Colour.green()
-          )
+
+        embed = discord.Embed(
+          title="Mushroom farmed!",
+          description=f"{int_to_ordinal(farm_stats.farmed)} mushroom farmed today!",
+          colour=discord.Colour.green()
         )
+        # If we have not reached daily goal, show how many more to the daily goal
+        if (
+          not farm_stats.daily_goal_reached
+          and farm_stats.daily_goal is not None
+        ):
+          embed.description += f"\n{farm_stats.daily_goal-farm_stats.farmed} more mushrooms till the daily goal!" # type: ignore
+        
+        embeds.append(embed)
+
+        print(farm_stats)
 
         # Check if server has reached daily goal
-        if (
-            farm_stats.daily_goal_reached
-            and farm_stats.daily_goal is not None
-            and not farm_stats.awarded_daily
-          ):
+        if all((
+          farm_stats.daily_goal is not None,
+          farm_stats.daily_goal_reached,
+          not farm_stats.awarded_daily
+        )):
           await self.shroom_farm.award_contributors(farm_stats)
-          farm_stats.awarded_daily = True
           embeds.append(
             discord.Embed(
               title="Daily goal reached!",
-              description="All contributors have been awarded double Shroom Tokens!"
+              description="All contributors have been awarded double Shroom Tokens!",
+              colour=discord.Colour.green()
             )
           )
 

@@ -1,25 +1,43 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, date
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, TypedDict
 
 if TYPE_CHECKING:
+  from dataclasses import Field
+
   from farm import Farm
   from id_types import ServerID, UserID
+
+
+def str_key_to_int(d: dict):
+  return {int(k): v for k, v in d.items()}
+
+def int_key_to_str(d: dict):
+  return {str(k): v for k, v in d.items()}
+
+def factory_field(factory: Callable, **kwargs) -> Field:
+  return field(
+    metadata={
+      "factory": factory
+    },
+    **kwargs
+  )
 
 
 class DailyFarmStatsDict(TypedDict):
   id: ServerID
   farmed: int
   daily_goal: int | None
-  contributors: dict[UserID, int]
+  awarded_daily: bool
+  contributors: dict[str, int]
 
 class DailyStatsDict(TypedDict):
   date: datetime
   total: int
-  farms: dict[ServerID, DailyFarmStatsDict]
-  users: dict[UserID, int]
+  farms: dict[str, DailyFarmStatsDict]
+  users: dict[str, int]
 
 
 
@@ -29,7 +47,17 @@ class DailyFarmStats:
   farmed: int = 0
   daily_goal: int | None = None
   awarded_daily: bool = False # This is needed to ensure we don't award contributors twice
-  contributors: dict[UserID, int] = {}
+  contributors: dict[UserID, int] = field(default_factory=dict)
+
+  @classmethod
+  def from_db(cls, d: DailyFarmStatsDict):
+    return cls(
+      id=d["id"],
+      farmed=d["farmed"],
+      daily_goal=d["daily_goal"],
+      awarded_daily=d["awarded_daily"],
+      contributors=str_key_to_int(d["contributors"]) # type: ignore
+    )
 
   @property
   def daily_goal_reached(self) -> bool:
@@ -47,7 +75,8 @@ class DailyFarmStats:
       "id": self.id,
       "farmed": self.farmed,
       "daily_goal": self.daily_goal,
-      "contributors": self.contributors
+      "awarded_daily": self.awarded_daily,
+      "contributors": int_key_to_str(self.contributors)
     }
 
 
@@ -56,8 +85,17 @@ class DailyFarmStats:
 class DailyStats:
   date: datetime = datetime.utcnow()
   total: int = 0
-  farms: dict[ServerID, DailyFarmStatsDict] = {}
-  users: dict[UserID, int] = {}
+  farms: dict[ServerID, DailyFarmStatsDict] = field(default_factory=dict)
+  users: dict[UserID, int] = field(default_factory=dict)
+
+  @classmethod
+  def from_db(cls, d: DailyStatsDict):
+    return cls(
+      date=d["date"],
+      total=d["total"],
+      farms=str_key_to_int(d["farms"]), # type: ignore
+      users=str_key_to_int(d["users"])  # type: ignore
+    )
 
   @property
   def is_today(self) -> bool:
@@ -68,7 +106,10 @@ class DailyStats:
     if farm is None:
       return None
     else:
-      return DailyFarmStats(**farm)
+      return DailyFarmStats.from_db(farm)
+    
+  def save_farm_stats(self, farm_stats: DailyFarmStats):
+    self.farms[farm_stats.id] = farm_stats.to_dict()
     
   def get_user_farmed(self, user_id: UserID) -> int:
     return self.users.get(user_id, 0)
@@ -77,12 +118,16 @@ class DailyStats:
     self.total += amount
 
     farm_stats = self.get_farm_stats(farm._id) or DailyFarmStats(farm._id, daily_goal=farm.daily_goal)
-    farm_stats.farmed += amount
     if not farm_stats.daily_goal_reached and farm_stats.daily_goal is not None:
+      amt = min(
+        farm_stats.daily_goal-farm_stats.farmed,
+        amount
+      )
       try:
-        farm_stats.contributors[user_id] += amount
+        farm_stats.contributors[user_id] += amt
       except KeyError:
-        farm_stats.contributors[user_id] = amount
+        farm_stats.contributors[user_id] = amt
+    farm_stats.farmed += amount
     self.farms[farm._id] = farm_stats.to_dict()
 
     try:
@@ -96,6 +141,6 @@ class DailyStats:
     return {
       "date": self.date,
       "total": self.total,
-      "farms": self.farms,
-      "users": self.users
+      "farms": int_key_to_str(self.farms),
+      "users": int_key_to_str(self.users)
     }

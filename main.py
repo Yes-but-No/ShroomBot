@@ -5,11 +5,26 @@ import os
 
 import discord
 from discord import app_commands
+from discord.ext import commands
 
 from bot import ShroomBot
 
 
-bot = ShroomBot(command_prefix="$", help_command=None, intents=discord.Intents.all())
+bot = ShroomBot(command_prefix="$", help_command=None, intents=discord.Intents.all(), owner_ids=(751768586699276342, 759195783597129760))
+
+
+@bot.command(hidden=True)
+@commands.is_owner()
+async def save_stats(ctx: commands.Context):
+  await bot.shroom_farm.save_daily_stats(bot.shroom_farm.daily_stats)
+
+@bot.command(hidden=True)
+@commands.is_owner()
+async def show_server_stats(ctx: commands.Context, server_id: int):
+  farm_stats = bot.shroom_farm.daily_stats.get_farm_stats(server_id) # type: ignore
+  if farm_stats is not None:
+    await ctx.reply(str(farm_stats))
+
 
 @bot.tree.command(name="setup")
 @app_commands.describe(channel="The channel where you want mushrooms to be farmed")
@@ -51,6 +66,31 @@ async def set_channel(interaction: discord.Interaction, channel: discord.TextCha
     embed = discord.Embed(
       title="Success!",
       description=f"The farm channel has been successfully changed to <#{channel.id}>",
+      colour=discord.Colour.green()
+    )
+  await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="setdailygoal")
+@app_commands.describe(goal="The target number of mushrooms to farm each day")
+@app_commands.guild_only()
+@app_commands.checks.has_permissions(administrator=True)
+async def set_goal(interaction: discord.Interaction, goal: int):
+  """Set the daily goal for server members to work towards"""
+  try:
+    await bot.shroom_farm.set_daily_goal(interaction.guild_id, goal) # type: ignore
+  except ValueError:
+    embed = discord.Embed(
+      title="Farm not set up!",
+      description="Your server has not set up the farm yet, use `/setup` instead",
+      colour=discord.Colour.red()
+    )
+  else:
+    embed = discord.Embed(
+      title="Success!",
+      description=(
+        f"The daily goal has been successfully changed to `{goal}`\n"
+        "If you have already farmed mushrooms today, the daily goal will only apply tomorrow!"
+      ),
       colour=discord.Colour.green()
     )
   await interaction.response.send_message(embed=embed)

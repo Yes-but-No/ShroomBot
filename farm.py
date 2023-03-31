@@ -35,7 +35,8 @@ class Farm:
     d = {
       "total_farmed": self.total_farmed,
       "last_farmer": self.last_farmer,
-      "farm_channel": self.farm_channel
+      "farm_channel": self.farm_channel,
+      "daily_goal": self.daily_goal
     }
     if include_id:
       d["_id"] = self._id

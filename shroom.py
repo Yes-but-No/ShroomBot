@@ -9,9 +9,10 @@ from motor import motor_asyncio
 from farm import Farm
 from stats import DailyStats
 from user import User
+from id_types import UserID
 
 if TYPE_CHECKING:
-  from id_types import ServerID, UserID, ChannelID
+  from id_types import ServerID, ChannelID
   from stats import DailyStatsDict, DailyFarmStats
 
 class FarmResultsDict(TypedDict):
@@ -59,7 +60,7 @@ class ShroomFarm:
     return Farm(**d)
 
   async def create_farm(self, server_id: ServerID, channel: ChannelID | None = None) -> Farm:
-    if self.get_farm(server_id) is not None:
+    if await self.get_farm(server_id) is not None:
       raise ValueError(f"farm with ID `{server_id}` already exists")
     farm = Farm(server_id, farm_channel=channel)
     await self.farm_db.insert_one(farm.to_dict())
@@ -146,7 +147,7 @@ class ShroomFarm:
     if stats is None:
       return None
     else:
-      return DailyStats(**stats)
+      return DailyStats.from_db(stats)
     
   async def save_daily_stats(self, stats: DailyStats):
     latest_stats = await self.get_latest_daily_stats()
@@ -176,7 +177,7 @@ class ShroomFarm:
 
   def get_server_farmed_today(self, farm_id: ServerID) -> int:
     farm_stats = self.daily_stats.get_farm_stats(farm_id)
-    return  farm_stats.farmed if farm_stats is not None else 0
+    return farm_stats.farmed if farm_stats is not None else 0
   
   def get_user_farmed_today(self, user_id: UserID) -> int:
     return self.daily_stats.get_user_farmed(user_id)
@@ -191,7 +192,7 @@ class ShroomFarm:
   async def get_server_weekly_farmed(self, farm_id: ServerID) -> int:
     total = self.get_server_farmed_today(farm_id)
     async for farm_stats in self.stats_db.find({}, projection=("farms",)):
-      farm_stats = farm_stats.get(farm_id)
+      farm_stats = farm_stats.get(str(farm_id))
       if farm_stats is None:
         continue
       else:
@@ -201,7 +202,7 @@ class ShroomFarm:
   async def get_user_weekly_farmed(self, user_id: UserID) -> int:
     total = self.daily_stats.get_user_farmed(user_id)
     async for user_stats in self.stats_db.find({}, projection=("users",)):
-      total += user_stats.get(user_id, 0)
+      total += user_stats.get(str(user_id), 0)
     return total
 
 
@@ -212,29 +213,31 @@ class ShroomFarm:
     else:
       contributors = Counter(farm_stats.contributors)
     async for farm_stats in self.stats_db.find({}, projection=("farms",)):
-      farm_stats = farm_stats.get(farm_id)
+      farm_stats = farm_stats.get(str(farm_id))
       if farm_stats is None:
         continue
       else:
         contributors.update(farm_stats["contributors"])
-    return dict(contributors)
+    return {UserID(k): v for k, v in contributors.items()}
   
-  def get_server_top_daily_contributors(self, farm_id: ServerID, limit: int = 10) -> dict[UserID, int]:
+  def get_server_top_daily_contributors(self, farm_id: ServerID) -> dict[UserID, int]:
     farm_stats = self.daily_stats.get_farm_stats(farm_id)
     if farm_stats is None:
       return dict()
     contributors = farm_stats.contributors
-    return dict(sorted(contributors.items(), key=itemgetter(1), reverse=True))
+    return {UserID(k): v for k, v in sorted(contributors.items(), key=itemgetter(1), reverse=True)} 
   
-  async def get_server_top_weekly_contributors(self, farm_id: ServerID, limit: int = 10) -> dict[UserID, int]:
+  async def get_server_top_weekly_contributors(self, farm_id: ServerID) -> dict[UserID, int]:
     contributors = await self.get_server_contributors(farm_id)
-    return dict(sorted(contributors.items(), key=itemgetter(1), reverse=True))
+    return {UserID(k): v for k, v in sorted(contributors.items(), key=itemgetter(1), reverse=True)}
 
 
 
   async def award_contributors(self, farm_stats: DailyFarmStats):
     for user_id, amount in farm_stats.contributors.items():
       await self.inc_user_tokens(user_id, amount)
+    farm_stats.awarded_daily = True
+    self.daily_stats.save_farm_stats(farm_stats)
 
   async def farm(self, farm: Farm, user_id: UserID, amount: int = 1) -> FarmResultsDict:
 
