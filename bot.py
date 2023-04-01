@@ -59,6 +59,8 @@ class ShroomBot(commands.Bot):
     self.tree.copy_global_to(guild=DEV_SERVER)
     await self.tree.sync(guild=DEV_SERVER)
 
+    await self.tree.sync()
+
   async def on_command_error(self, context: commands.Context[ShroomBot], exception: commands.errors.CommandError, /) -> None:
     if isinstance(
       exception,
@@ -69,15 +71,21 @@ class ShroomBot(commands.Bot):
         discord.app_commands.MissingPermissions
       )
     ):
+      msg = str(exception)
+    else:
+      msg = "An unknown error has occurred"
+      await super().on_command_error(context, exception)
+
+    try:
       await context.reply(
         embed=discord.Embed(
           title="Error!",
-          description=str(exception),
+          description=msg,
           colour=discord.Colour.red()
         )
       )
-    else:
-      return await super().on_command_error(context, exception)
+    except Exception: # It means we can't send a message so we ignore it
+      pass
 
   async def on_message(self, message: Message):
     if message.author.bot:
