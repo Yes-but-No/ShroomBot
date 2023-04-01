@@ -48,6 +48,50 @@ async def show_user_info(ctx: commands.Context, user_id: int | None = None):
 @bot.command(hidden=True)
 @commands.is_owner()
 @commands.guild_only()
+async def force_setup(ctx: commands.Context, channel_id: int | None = None):
+  if channel_id is None:
+    channel_id = ctx.channel.id
+  try:
+    await bot.shroom_farm.create_farm(ctx.guild.id, channel_id) # type: ignore
+  except ValueError:
+    embed =  discord.Embed(
+      title="Farm already exists!",
+      description="Your server already has a farm set up, if you wish to change the farm channel, use `/setchannel` instead",
+      colour=discord.Colour.red()
+    )
+  else:
+    embed = discord.Embed(
+      title="Success!",
+      description=f"Farm created successfully, send a 🍄 in <#{channel_id}> to start farming!",
+      colour=discord.Colour.green()
+    )
+  await ctx.reply(embed=embed)
+
+@bot.command(hidden=True)
+@commands.is_owner()
+@commands.guild_only()
+async def force_set_channel(ctx: commands.Context, channel_id: int | None = None):
+  if channel_id is None:
+    channel_id = ctx.channel.id
+  try:
+    await bot.shroom_farm.set_farm_channel(ctx.guild.id, channel_id) # type: ignore
+  except ValueError:
+    embed = discord.Embed(
+      title="Farm not set up!",
+      description="Your server has not set up the farm yet, use `/setup` instead",
+      colour=discord.Colour.red()
+    )
+  else:
+    embed = discord.Embed(
+      title="Success!",
+      description=f"The farm channel has been successfully changed to <#{channel_id}>",
+      colour=discord.Colour.green()
+    )
+  await ctx.reply(embed=embed)
+
+@bot.command(hidden=True)
+@commands.is_owner()
+@commands.guild_only()
 async def farm(ctx: commands.Context, amount: int, user_id: int | None = None):
   if user_id is None:
     user_id = ctx.author.id
