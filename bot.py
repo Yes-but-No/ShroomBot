@@ -21,7 +21,8 @@ SHROOM_RESET_TIME = datetime.time(hour=0, minute=0, tzinfo=datetime.timezone.utc
 
 class ShroomBot(commands.Bot):
   def __init__(self, *args, **kwargs):
-    self.shroom_farm = ShroomFarm()
+    url = kwargs.pop("mongo_url", "localhost")
+    self.shroom_farm = ShroomFarm(url)
     self._lock = asyncio.Lock()
     self.presence_selector = True
     super().__init__(*args, **kwargs)
