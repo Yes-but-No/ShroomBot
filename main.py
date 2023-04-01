@@ -10,8 +10,15 @@ from discord.ext import commands
 from bot import ShroomBot
 from utils import int_to_ordinal
 
+DATABASE_URL = os.getenv("MONGO_URL")
 
-bot = ShroomBot(command_prefix="$", help_command=None, intents=discord.Intents.all(), owner_ids=(751768586699276342, 759195783597129760))
+if DATABASE_URL is None:
+  url = "localhost"
+else:
+  url = DATABASE_URL
+
+bot = ShroomBot(mongo_url=url, command_prefix="$", help_command=None, intents=discord.Intents.all(), owner_ids=(751768586699276342, 759195783597129760))
+
 
 #########################
 ### Text Debug Commands
