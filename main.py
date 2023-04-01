@@ -258,5 +258,25 @@ async def mini(interaction: discord.Interaction):
   """What does this even do??"""
   await interaction.response.send_message("This command was developed by mini")
 
+####################
+### Error handling
+####################
+
+default_on_error = bot.tree.on_error
+
+@bot.tree.error
+async def on_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+  if isinstance(error, app_commands.MissingPermissions):
+    msg = "You do not have the required permissions to run this command"
+  else:
+    msg = "An unknown error has occurred"
+    await default_on_error(interaction, error) # type: ignore
+  await interaction.response.send_message(
+    embed=discord.Embed(
+      title="Error!",
+      description=msg,
+      colour=discord.Colour.red()
+    )
+  )
 
 bot.run(os.getenv("TOKEN")) # type: ignore
