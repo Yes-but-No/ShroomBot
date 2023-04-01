@@ -147,7 +147,7 @@ class ShroomFarm:
     
   async def save_daily_stats(self, stats: DailyStats):
     latest_stats = await self.get_latest_daily_stats()
-    if latest_stats is not None and latest_stats.is_today:
+    if latest_stats is not None and latest_stats.date.date() == stats.date.date():
       return
     else:
       await self.stats_db.insert_one(stats.to_dict())
