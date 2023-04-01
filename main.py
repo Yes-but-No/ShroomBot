@@ -17,6 +17,8 @@ if DATABASE_URL is None:
 else:
   url = DATABASE_URL
 
+print("Connecting to database at:", url)
+
 bot = ShroomBot(mongo_url=url, command_prefix="$", help_command=None, intents=discord.Intents.all(), owner_ids=(751768586699276342, 759195783597129760))
 
 
