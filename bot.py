@@ -89,6 +89,7 @@ class ShroomBot(commands.Bot):
 
   async def on_message(self, message: Message):
     if message.author.bot:
+      await message.add_reaction("🍄")
       return
 
     if message.content == "🍄":
@@ -104,11 +105,13 @@ class ShroomBot(commands.Bot):
       elif farm.farm_channel != message.channel.id:
         return
       elif farm.last_farmer == message.author.id:
+        await message.add_reaction("❌")
         embed = discord.Embed(
           title="You cannot farm mushrooms now",
           description="You can only farm mushrooms one at a time",
           colour=discord.Colour.red()
         )
+        embed.set_author(name=message.author)
       else:
         result = await self.shroom_farm.farm(farm, message.author.id) # type: ignore
         await message.add_reaction("🍄")
