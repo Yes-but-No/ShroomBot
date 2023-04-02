@@ -104,6 +104,7 @@ class ShroomBot(commands.Bot):
       elif farm.farm_channel != message.channel.id:
         return
       elif farm.last_farmer == message.author.id:
+        await message.add_reaction("❌")
         embed = discord.Embed(
           title="You cannot farm mushrooms now",
           description="You can only farm mushrooms one at a time",
