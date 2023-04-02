@@ -36,10 +36,10 @@ class ShroomBot(commands.Bot):
   async def update_presence_loop(self):
     if self.presence_selector:
       n = await self.shroom_farm.get_total_weekly_farmed() # technically we could just cache this and just add total to it
-      msg = f"{n} mushrooms farmed this week"              # but I'm too lazy
+      msg = f"{n} farmed this week"                        # but I'm too lazy
     else:
       n = self.shroom_farm.daily_stats.total
-      msg = f"{n} mushrooms farmed today"
+      msg = f"{n} farmed today"
     self.presence_selector = not self.presence_selector
     await self.change_presence(activity=discord.Game(name=msg))
 
