@@ -10,6 +10,8 @@ from discord.ext import commands
 from bot import ShroomBot
 from utils import int_to_ordinal
 
+import requests
+
 DATABASE_URL = os.getenv("MONGO_URL")
 
 if DATABASE_URL is None:
@@ -301,6 +303,29 @@ async def user_stats(interaction: discord.Interaction, member: discord.Member):
 async def mini(interaction: discord.Interaction):
   """What does this even do??"""
   await interaction.response.send_message("This command was developed by mini")
+  
+@bot.tree.command(name="jerome")
+async def jerome(interaction: discord.Interaction):
+  r = requests.get('https://api.quotable.io/random')
+  quote = r.json().get('content')
+  embed = discord.Embed(
+      title="Jerome's Quote:",
+      description=quote,
+      colour=discord.Colour.random()
+    )
+  embed.set_author(name='Jerome', icon_url=bot.user.display_avatar.url)
+  await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="whyjerome")
+async def whyjerome(interaction: discord.Interaction):
+  embed = discord.Embed(
+      title="Why Jerome:",
+      description='The /jerome command gives a random quote',
+      colour=discord.Colour.random()
+    )
+  embed.set_author(name='Jerome', icon_url=bot.user.display_avatar.url)
+  embed.set_footer(text="Better than /mini")
+  await interaction.response.send_message(embed=embed)
 
 ####################
 ### Error handling
