@@ -188,7 +188,7 @@ class ShroomFarm:
   async def get_server_weekly_farmed(self, farm_id: ServerID) -> int:
     total = self.get_server_farmed_today(farm_id)
     async for farm_stats in self.stats_db.find({}, projection=("farms",)):
-      farm_stats = farm_stats.get(str(farm_id))
+      farm_stats = farm_stats["farms"].get(str(farm_id))
       if farm_stats is None:
         continue
       else:
@@ -198,7 +198,7 @@ class ShroomFarm:
   async def get_user_weekly_farmed(self, user_id: UserID) -> int:
     total = self.daily_stats.get_user_farmed(user_id)
     async for user_stats in self.stats_db.find({}, projection=("users",)):
-      total += user_stats.get(str(user_id), 0)
+      total += user_stats["users"].get(str(user_id), 0)
     return total
 
 
@@ -230,9 +230,9 @@ class ShroomFarm:
 
 
   async def award_contributors(self, farm_stats: DailyFarmStats):
+    farm_stats.awarded_daily = True
     for user_id, amount in farm_stats.contributors.items():
       await self.inc_user_tokens(user_id, amount)
-    farm_stats.awarded_daily = True
     self.daily_stats.save_farm_stats(farm_stats)
 
   async def farm(self, farm: Farm, user_id: UserID, amount: int = 1) -> FarmResultsDict:
