@@ -230,9 +230,9 @@ class ShroomFarm:
 
 
   async def award_contributors(self, farm_stats: DailyFarmStats):
+    farm_stats.awarded_daily = True
     for user_id, amount in farm_stats.contributors.items():
       await self.inc_user_tokens(user_id, amount)
-    farm_stats.awarded_daily = True
     self.daily_stats.save_farm_stats(farm_stats)
 
   async def farm(self, farm: Farm, user_id: UserID, amount: int = 1) -> FarmResultsDict:
