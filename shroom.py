@@ -151,7 +151,6 @@ class ShroomFarm:
       await self.stats_db.find_one_and_replace(latest_stats.to_dict(), stats.to_dict())
     else:
       await self.stats_db.insert_one(stats.to_dict())
-    self.daily_stats = DailyStats()
 
   async def clear_daily_stats(self):
     """|coro|
