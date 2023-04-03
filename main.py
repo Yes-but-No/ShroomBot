@@ -96,38 +96,28 @@ async def farm(ctx: commands.Context, amount: int, user_id: int | None = None):
   if user_id is None:
     user_id = ctx.author.id
 
-  farm = await bot.shroom_farm.get_farm(ctx.guild.id) # type: ignore
-
-  if farm is None:
-    return
-
-  result = await bot.shroom_farm.farm(farm, user_id, amount) # type: ignore
-
-  farm_stats = result["farm_stats"]
+  async with bot._lock:
+    result = await bot.shroom_farm.farm(farm, ctx.author.id) # type: ignore
+  await ctx.message.add_reaction("🍄")
 
   embeds = []
 
   embed = discord.Embed(
     title="Mushroom farmed!",
-    description=f"{int_to_ordinal(farm_stats.farmed)} mushroom farmed today!",
+    description=f"{int_to_ordinal(result.farmed)} mushroom farmed today!",
     colour=discord.Colour.green()
   )
   # If we have not reached daily goal, show how many more to the daily goal
   if (
-    not farm_stats.daily_goal_reached
-    and farm_stats.daily_goal is not None
+    not result.daily_goal_reached
+    and result.daily_goal is not None
   ):
-    embed.description += f"\n{farm_stats.daily_goal-farm_stats.farmed} more mushrooms till the daily goal!" # type: ignore
+    embed.description += f"\n{result.daily_goal-result.farmed} more mushrooms till the daily goal!" # type: ignore
   
   embeds.append(embed)
 
   # Check if server has reached daily goal
-  if all((
-    farm_stats.daily_goal is not None,
-    farm_stats.daily_goal_reached,
-    not farm_stats.awarded_daily
-  )):
-    await bot.shroom_farm.award_contributors(farm_stats)
+  if result.awarding_daily:
     embeds.append(
       discord.Embed(
         title="Daily goal reached!",
@@ -135,15 +125,11 @@ async def farm(ctx: commands.Context, amount: int, user_id: int | None = None):
         colour=discord.Colour.green()
       )
     )
-
-  # Check if user has ranked up
-  user = result["user"]
-  if user.ranked_up:
-    await bot.shroom_farm.rank_up_user(user._id)
+  if result.user_ranked_up:
     embeds.append(
       discord.Embed(
         title=f"{ctx.author.name} ranked up!",
-        description=f"Your rank is now `{user.next_rank.name}`!", # type: ignore
+        description=f"Your rank is now `{result.user.next_rank.name}`!", # type: ignore
         colour=discord.Colour.green()
       )
     )

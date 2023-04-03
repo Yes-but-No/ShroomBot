@@ -1,8 +1,9 @@
 from __future__ import annotations
 from collections import Counter
+from dataclasses import dataclass
 from operator import itemgetter
 
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING
 
 from motor import motor_asyncio
 
@@ -15,9 +16,14 @@ if TYPE_CHECKING:
   from shroom.id_types import ServerID, ChannelID
   from shroom.stats import DailyStatsDict, DailyFarmStats
 
-class FarmResultsDict(TypedDict):
-  farm_stats: DailyFarmStats
+@dataclass
+class FarmResult:
+  farmed: int
+  daily_goal_reached: bool
   user: User
+  user_ranked_up: bool = False
+  awarding_daily: bool = False
+  daily_goal: int | None = None
 
 
 class ShroomFarm:
@@ -234,7 +240,7 @@ class ShroomFarm:
       await self.inc_user_tokens(user_id, amount)
     self.daily_stats.save_farm_stats(farm_stats)
 
-  async def farm(self, farm: Farm, user_id: UserID, amount: int = 1) -> FarmResultsDict:
+  async def farm(self, farm: Farm, user_id: UserID, amount: int = 1) -> FarmResult:
 
     farm_stats = self.daily_stats.inc_shroom_count(farm, user_id, amount)
 
@@ -245,8 +251,26 @@ class ShroomFarm:
     user = await self.get_user(user_id) or await self.create_user(user_id)
     user.farmed += amount
     user.tokens += amount
-    await self.save_user(user)
 
+    await self.save_user(user)
     await self.save_farm(farm)
 
-    return {"farm_stats": farm_stats, "user": user}
+    result = FarmResult(
+      farm_stats.farmed,
+      farm_stats.daily_goal_reached,
+      user
+    )
+
+    if all((
+      farm_stats.daily_goal is not None,
+      farm_stats.daily_goal_reached,
+      not farm_stats.awarded_daily
+    )):
+      await self.award_contributors(farm_stats)
+      result.awarding_daily = True
+
+    if user.ranked_up:
+      await self.rank_up_user(user._id)
+      result.user_ranked_up = True
+
+    return result
