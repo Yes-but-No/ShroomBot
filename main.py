@@ -324,7 +324,7 @@ async def whyjerome(interaction: discord.Interaction):
       colour=discord.Colour.random()
     )
   embed.set_author(name='Jerome', icon_url=bot.user.display_avatar.url)
-  embed.set_footer(text="Better than /mini")
+  embed.set_footer(text="/mini :heart: /jerome ")
   await interaction.response.send_message(embed=embed)
 
 ####################
