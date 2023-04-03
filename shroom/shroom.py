@@ -6,14 +6,14 @@ from typing import TYPE_CHECKING, TypedDict
 
 from motor import motor_asyncio
 
-from farm import Farm
-from stats import DailyStats
-from user import User
-from id_types import UserID
+from shroom.farm import Farm
+from shroom.stats import DailyStats
+from shroom.user import User
+from shroom.id_types import UserID
 
 if TYPE_CHECKING:
-  from id_types import ServerID, ChannelID
-  from stats import DailyStatsDict, DailyFarmStats
+  from shroom.id_types import ServerID, ChannelID
+  from shroom.stats import DailyStatsDict, DailyFarmStats
 
 class FarmResultsDict(TypedDict):
   farm_stats: DailyFarmStats

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
-  from id_types import ServerID, UserID, ChannelID
+  from shroom.id_types import ServerID, UserID, ChannelID
 
 
 class FarmDict(TypedDict):

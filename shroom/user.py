@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, TypedDict
 
-from ranks import RANKS
+from shroom.ranks import RANKS
 
 if TYPE_CHECKING:
-  from id_types import UserID
-  from ranks import Rank
+  from shroom.id_types import UserID
+  from shroom.ranks import Rank
 
 
 class UserDict(TypedDict):
