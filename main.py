@@ -306,15 +306,18 @@ async def mini(interaction: discord.Interaction):
   
 @bot.tree.command(name="jerome")
 async def jerome(interaction: discord.Interaction):
-  r = requests.get('https://api.quotable.io/random')
-  quote = r.json().get('content')
-  embed = discord.Embed(
-      title="Jerome's Quote:",
-      description=quote,
-      colour=discord.Colour.random()
-    )
-  embed.set_author(name='Jerome', icon_url=bot.user.display_avatar.url)
-  await interaction.response.send_message(embed=embed)
+  async with aiohttp.ClientSession() as session:
+    async with session.get('https://api.quotable.io/random') as r:
+        if r.status == 200:
+            js = await r.json()
+            quote = r.json().get('content')
+            embed = discord.Embed(
+                title="Jerome's Quote:",
+                description=quote,
+                colour=discord.Colour.random()
+              )
+            embed.set_author(name='Jerome', icon_url=bot.user.display_avatar.url)
+            await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="whyjerome")
 async def whyjerome(interaction: discord.Interaction):
