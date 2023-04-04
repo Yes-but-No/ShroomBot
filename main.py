@@ -10,7 +10,7 @@ from discord.ext import commands
 from bot import ShroomBot
 from utils import int_to_ordinal
 
-import requests
+import aiohttp
 
 DATABASE_URL = os.getenv("MONGO_URL")
 
