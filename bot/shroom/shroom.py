@@ -149,12 +149,14 @@ class ShroomFarm:
     else:
       return DailyStats.from_db(stats)
     
-  async def save_daily_stats(self, stats: DailyStats):
+  async def save_daily_stats(self, stats: DailyStats) -> bool:
     latest_stats = await self.get_latest_daily_stats()
     if latest_stats is not None and latest_stats.date.date() == stats.date.date():
-      await self.stats_db.find_one_and_replace({"_id": latest_stats._id}, stats.to_dict())
+      result = await self.stats_db.replace_one({"_id": latest_stats._id}, stats.to_dict())
+      return result.modified_count == 1
     else:
-      await self.stats_db.insert_one(stats.to_dict())
+      result = await self.stats_db.insert_one(stats.to_dict())
+      return bool(result)
 
   async def clear_daily_stats(self):
     """|coro|
@@ -165,13 +167,17 @@ class ShroomFarm:
     """
     await self.stats_db.delete_many({}) # rip
 
-  async def update_daily_stats(self):
+  async def update_daily_stats(self) -> bool:
     if self.daily_stats.date.isoweekday() == 6:
       # If it's a Sunday, we have to clear the `Stats` collection
       await self.clear_daily_stats()
+      # We can't tell if it is successful since we don't know how many
+      # documents are in the collection, so we just assume it worked
+      result = True
     else:
-      await self.save_daily_stats(self.daily_stats)
+      result = await self.save_daily_stats(self.daily_stats)
     self.daily_stats = DailyStats()
+    return result
 
 
   def get_server_farmed_today(self, farm_id: int) -> int:
