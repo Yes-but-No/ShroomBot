@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import logging
 import os
 from typing import TYPE_CHECKING
 
@@ -9,6 +10,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
+from bot.cogs import COGS
 from bot.shroom import ShroomFarm
 from bot.utils import int_to_ordinal
 
@@ -17,6 +19,8 @@ if TYPE_CHECKING:
 
 DEV_SERVER = discord.Object(id=os.getenv("DEV_SERVER_ID")) # type: ignore
 SHROOM_RESET_TIME = datetime.time(hour=0, minute=0, tzinfo=datetime.timezone.utc)
+
+_log = logging.getLogger(__name__)
 
 
 
@@ -35,7 +39,12 @@ class ShroomBot(commands.Bot):
   @tasks.loop(time=SHROOM_RESET_TIME)
   async def update_stats_loop(self):
     async with self._lock:
-      await self.shroom_farm.update_daily_stats()
+      _log.info("Attempting to update daily stats")
+      result = await self.shroom_farm.update_daily_stats()
+      if result:
+        _log.info("Daily Stats updated successfully")
+      else:
+        _log.warn("Daily Stats update was unsuccessful")
 
   @tasks.loop(minutes=1)
   async def update_presence_loop(self):
@@ -60,6 +69,10 @@ class ShroomBot(commands.Bot):
     # into the database, but I'm sure it's fine...
     self.update_stats_loop.start()
     self.update_presence_loop.start()
+
+    for cog in COGS:
+      _log.info(f"Loading cog `{cog!r}`")
+      await self.add_cog(cog(self))
 
     self.tree.copy_global_to(guild=DEV_SERVER)
     await self.tree.sync(guild=DEV_SERVER)
