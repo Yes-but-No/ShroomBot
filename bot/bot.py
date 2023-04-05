@@ -144,8 +144,7 @@ class ShroomBot(commands.Bot):
           colour=discord.Colour.red()
         )
       else:
-        async with self._lock:
-          result = await self.shroom_farm.farm(farm, message.author.id)
+        result = await self.shroom_farm.farm(farm, message.author.id)
         await message.add_reaction("🍄")
 
         embeds = []
@@ -177,7 +176,7 @@ class ShroomBot(commands.Bot):
           embeds.append(
             discord.Embed(
               title=f"{message.author.name} ranked up!",
-              description=f"Your rank is now `{result.user.next_rank.name}`!", # type: ignore
+              description=f"Your rank is now `{result.user.rank.name}`!",
               colour=discord.Colour.green()
             )
           )

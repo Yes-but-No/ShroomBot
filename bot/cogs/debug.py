@@ -154,8 +154,7 @@ class Debug(commands.Cog):
     if farm is None:
       return
 
-    async with self.bot._lock:
-      result = await self.bot.shroom_farm.farm(farm, ctx.author.id, amount) # type: ignore
+    result = await self.bot.shroom_farm.farm(farm, ctx.author.id, amount) # type: ignore
 
     embeds = []
 
@@ -186,7 +185,7 @@ class Debug(commands.Cog):
       embeds.append(
         discord.Embed(
           title=f"{ctx.author.name} ranked up!",
-          description=f"Your rank is now `{result.user.next_rank.name}`!", # type: ignore
+          description=f"Your rank is now `{result.user.rank.name}`!",
           colour=discord.Colour.green()
         )
       )

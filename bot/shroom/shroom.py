@@ -8,11 +8,13 @@ from typing import TYPE_CHECKING
 from motor import motor_asyncio
 
 from bot.shroom.farm import Farm
+from bot.shroom.manager import FarmingManager
+from bot.shroom.ranks import Rank
 from bot.shroom.stats import DailyStats
 from bot.shroom.user import User
 
 if TYPE_CHECKING:
-  from shroom.stats import DailyStatsDict, DailyFarmStats
+  from bot.shroom.stats import DailyStatsDict, DailyFarmStats
 
 @dataclass
 class FarmResult:
@@ -24,7 +26,7 @@ class FarmResult:
   daily_goal: int | None = None
 
 
-class ShroomFarm:
+class ShroomFarm(FarmingManager):
   def __init__(self, url: str = "localhost"):
     self.db_url = url
     self._db_client = motor_asyncio.AsyncIOMotorClient(url)
@@ -33,6 +35,8 @@ class ShroomFarm:
     self.farm_db: motor_asyncio.AsyncIOMotorCollection = self.shroom_db["Farm"]
     self.user_db: motor_asyncio.AsyncIOMotorCollection = self.shroom_db["Users"]
     self.stats_db: motor_asyncio.AsyncIOMotorCollection = self.shroom_db["Stats"]
+
+    super().__init__()
 
   async def setup(self):
     latest_stats = await self.get_latest_daily_stats()
@@ -129,13 +133,20 @@ class ShroomFarm:
     result = await self.user_db.update_one({"_id": user_id}, {"$set": {"tokens": tokens}})
     return result.modified_count == 1
   
-  async def rank_up_user(self, user_id: int) -> bool:
+  async def set_user_rank(self, user_id: int, rank_or_int: Rank | int) -> bool:
     """|coro|
 
-    Increases the user's rank by 1
-    NOTE: This does not implement any check to see if the user is already at the max rank
+    Sets the user's rank
+    NOTE: This does not implement any check to see if the user deserves that rank
     """
-    result = await self.user_db.update_one({"_id": user_id}, {"$inc": {"rank_enum": 1}})
+    if isinstance(rank_or_int, Rank):
+      enum = rank_or_int.enum
+    elif isinstance(rank_or_int, int):
+      enum = rank_or_int
+    else:
+      raise TypeError("value must be either a `Rank` or `int` type")
+
+    result = await self.user_db.update_one({"_id": user_id}, {"$set": {"rank_enum": enum}})
     return result.modified_count == 1
 
   ################################
@@ -245,36 +256,40 @@ class ShroomFarm:
     self.daily_stats.save_farm_stats(farm_stats)
 
   async def farm(self, farm: Farm, user_id: int, amount: int = 1) -> FarmResult:
+    await self.acquire_farm(farm._id)
 
-    farm_stats = self.daily_stats.inc_shroom_count(farm, user_id, amount)
+    try:
+      farm_stats = self.daily_stats.inc_shroom_count(farm, user_id, amount)
 
-    farm.total_farmed += amount
-    farm.last_farmer = user_id
+      farm.total_farmed += amount
+      farm.last_farmer = user_id
+
+      user = await self.get_user(user_id) or await self.create_user(user_id)
+      user.farmed += amount
+      user.tokens += amount
+
+      result = FarmResult(
+        farm_stats.farmed,
+        farm_stats.daily_goal_reached,
+        user
+      )
+
+      if user.ranked_up:
+        user = user.update_rank()
+        result.user_ranked_up = True
+
+      if all((
+        farm_stats.daily_goal is not None,
+        farm_stats.daily_goal_reached,
+        not farm_stats.awarded_daily
+      )):
+        await self.award_contributors(farm_stats)
+        result.awarding_daily = True
+
+      await self.save_user(user)
+      await self.save_farm(farm)
+
+      return result
     
-    # Why do I do this
-    user = await self.get_user(user_id) or await self.create_user(user_id)
-    user.farmed += amount
-    user.tokens += amount
-
-    await self.save_user(user)
-    await self.save_farm(farm)
-
-    result = FarmResult(
-      farm_stats.farmed,
-      farm_stats.daily_goal_reached,
-      user
-    )
-
-    if all((
-      farm_stats.daily_goal is not None,
-      farm_stats.daily_goal_reached,
-      not farm_stats.awarded_daily
-    )):
-      await self.award_contributors(farm_stats)
-      result.awarding_daily = True
-
-    if user.ranked_up:
-      await self.rank_up_user(user._id)
-      result.user_ranked_up = True
-
-    return result
+    finally:
+      self.release_farm(farm._id)
