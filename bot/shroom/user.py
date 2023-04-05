@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Self, TypedDict
 
 from bot.shroom.ranks import RANKS
 
@@ -48,6 +48,20 @@ class User:
       return False
     else:
       return self.farmed >= self.next_rank.requirement
+    
+  def update_rank(self) -> Self:
+    """Updates user's rank to their highest possible rank,
+    which may be higher or lower than the user's current rank
+    """
+    if self.farmed < self.rank.requirement:
+      while self.farmed < self.rank.requirement:
+        if self.rank_enum == 0:
+          break
+        self.rank_enum -= 1
+    else:
+      while self.ranked_up:
+        self.rank_enum += 1
+    return self
     
   def to_dict(self, include_id=True) -> UserDict:
     d = {
