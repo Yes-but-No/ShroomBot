@@ -7,13 +7,11 @@ from typing import TYPE_CHECKING
 
 from motor import motor_asyncio
 
-from shroom.farm import Farm
-from shroom.stats import DailyStats
-from shroom.user import User
-from shroom.id_types import UserID
+from bot.shroom.farm import Farm
+from bot.shroom.stats import DailyStats
+from bot.shroom.user import User
 
 if TYPE_CHECKING:
-  from shroom.id_types import ServerID, ChannelID
   from shroom.stats import DailyStatsDict, DailyFarmStats
 
 @dataclass
@@ -65,21 +63,21 @@ class ShroomFarm:
       return None
     return Farm(**d)
 
-  async def create_farm(self, server_id: ServerID, channel: ChannelID | None = None) -> Farm:
+  async def create_farm(self, server_id: int, channel: int | None = None) -> Farm:
     if await self.get_farm(server_id) is not None:
       raise ValueError(f"farm with ID `{server_id}` already exists")
     farm = Farm(server_id, farm_channel=channel)
     await self.farm_db.insert_one(farm.to_dict())
     return farm
 
-  async def set_farm_channel(self, farm_id: ServerID, channel_id: ChannelID):
+  async def set_farm_channel(self, farm_id: int, channel_id: int):
     farm = await self.get_farm(farm_id)
     if farm is None:
       raise ValueError(f"server with ID `{farm_id}` does not exist")
     farm.farm_channel = channel_id
     await self.save_farm(farm)
 
-  async def set_daily_goal(self, farm_id: ServerID, daily_goal: int | None):
+  async def set_daily_goal(self, farm_id: int, daily_goal: int | None):
     farm = await self.get_farm(farm_id)
     if farm is None:
       raise ValueError(f"server with ID `{farm_id}` does not exist")
@@ -101,28 +99,28 @@ class ShroomFarm:
     )
     return result.modified_count == 1
 
-  async def get_user(self, user_id: UserID) -> User | None:
+  async def get_user(self, user_id: int) -> User | None:
     d = await self.user_db.find_one({"_id": user_id})
     if d is None:
       return None
     return User(**d)
 
-  async def create_user(self, user_id: UserID) -> User:
+  async def create_user(self, user_id: int) -> User:
     if await self.get_user(user_id) is not None:
       raise ValueError(f"user with ID `{user_id}` already exists")
     user = User(user_id)
     await self.user_db.insert_one(user.to_dict())
     return user
   
-  async def inc_user_farmed(self, user_id: UserID, amount: int = 1) -> bool:
+  async def inc_user_farmed(self, user_id: int, amount: int = 1) -> bool:
     result = await self.user_db.update_one({"_id": user_id}, {"$inc": {"farmed": amount}})
     return result.modified_count == 1
   
-  async def inc_user_tokens(self, user_id: UserID, tokens: int = 1) -> bool:
+  async def inc_user_tokens(self, user_id: int, tokens: int = 1) -> bool:
     result = await self.user_db.update_one({"_id": user_id}, {"$inc": {"tokens": tokens}})
     return result.modified_count == 1
   
-  async def set_user_tokens(self, user_id: UserID, tokens: int | None = None) -> bool:
+  async def set_user_tokens(self, user_id: int, tokens: int | None = None) -> bool:
     """|coro|
 
     Directly set the number of tokens a user has.
@@ -131,7 +129,7 @@ class ShroomFarm:
     result = await self.user_db.update_one({"_id": user_id}, {"$set": {"tokens": tokens}})
     return result.modified_count == 1
   
-  async def rank_up_user(self, user_id: UserID) -> bool:
+  async def rank_up_user(self, user_id: int) -> bool:
     """|coro|
 
     Increases the user's rank by 1
@@ -154,7 +152,7 @@ class ShroomFarm:
   async def save_daily_stats(self, stats: DailyStats):
     latest_stats = await self.get_latest_daily_stats()
     if latest_stats is not None and latest_stats.date.date() == stats.date.date():
-      await self.stats_db.find_one_and_replace(latest_stats.to_dict(), stats.to_dict())
+      await self.stats_db.find_one_and_replace({"_id": latest_stats._id}, stats.to_dict())
     else:
       await self.stats_db.insert_one(stats.to_dict())
 
@@ -168,7 +166,7 @@ class ShroomFarm:
     await self.stats_db.delete_many({}) # rip
 
   async def update_daily_stats(self):
-    if self.daily_stats.date == 6:
+    if self.daily_stats.date.isoweekday() == 6:
       # If it's a Sunday, we have to clear the `Stats` collection
       await self.clear_daily_stats()
     else:
@@ -176,11 +174,11 @@ class ShroomFarm:
     self.daily_stats = DailyStats()
 
 
-  def get_server_farmed_today(self, farm_id: ServerID) -> int:
+  def get_server_farmed_today(self, farm_id: int) -> int:
     farm_stats = self.daily_stats.get_farm_stats(farm_id)
     return farm_stats.farmed if farm_stats is not None else 0
   
-  def get_user_farmed_today(self, user_id: UserID) -> int:
+  def get_user_farmed_today(self, user_id: int) -> int:
     return self.daily_stats.get_user_farmed(user_id)
 
 
@@ -190,7 +188,7 @@ class ShroomFarm:
       total += stat["total"]
     return total
   
-  async def get_server_weekly_farmed(self, farm_id: ServerID) -> int:
+  async def get_server_weekly_farmed(self, farm_id: int) -> int:
     total = self.get_server_farmed_today(farm_id)
     async for farm_stats in self.stats_db.find({}, projection=("farms",)):
       farm_stats = farm_stats["farms"].get(str(farm_id))
@@ -200,14 +198,14 @@ class ShroomFarm:
         total += farm_stats.get("farmed", 0)
     return total
   
-  async def get_user_weekly_farmed(self, user_id: UserID) -> int:
+  async def get_user_weekly_farmed(self, user_id: int) -> int:
     total = self.daily_stats.get_user_farmed(user_id)
     async for user_stats in self.stats_db.find({}, projection=("users",)):
       total += user_stats["users"].get(str(user_id), 0)
     return total
 
 
-  async def get_server_contributors(self, farm_id: ServerID) -> dict[UserID, int]:
+  async def get_server_contributors(self, farm_id: int) -> dict[int, int]:
     farm_stats = self.daily_stats.get_farm_stats(farm_id)
     if farm_stats is None:
       contributors = Counter()
@@ -219,18 +217,18 @@ class ShroomFarm:
         continue
       else:
         contributors.update(farm_stats["contributors"])
-    return {UserID(k): v for k, v in contributors.items()}
+    return {int(k): v for k, v in contributors.items()}
   
-  def get_server_top_daily_contributors(self, farm_id: ServerID) -> dict[UserID, int]:
+  def get_server_top_daily_contributors(self, farm_id: int) -> dict[int, int]:
     farm_stats = self.daily_stats.get_farm_stats(farm_id)
     if farm_stats is None:
       return dict()
     contributors = farm_stats.contributors
-    return {UserID(k): v for k, v in sorted(contributors.items(), key=itemgetter(1), reverse=True)} 
+    return {int(k): v for k, v in sorted(contributors.items(), key=itemgetter(1), reverse=True)} 
   
-  async def get_server_top_weekly_contributors(self, farm_id: ServerID) -> dict[UserID, int]:
+  async def get_server_top_weekly_contributors(self, farm_id: int) -> dict[int, int]:
     contributors = await self.get_server_contributors(farm_id)
-    return {UserID(k): v for k, v in sorted(contributors.items(), key=itemgetter(1), reverse=True)}
+    return {int(k): v for k, v in sorted(contributors.items(), key=itemgetter(1), reverse=True)}
 
 
 
@@ -240,7 +238,7 @@ class ShroomFarm:
       await self.inc_user_tokens(user_id, amount)
     self.daily_stats.save_farm_stats(farm_stats)
 
-  async def farm(self, farm: Farm, user_id: UserID, amount: int = 1) -> FarmResult:
+  async def farm(self, farm: Farm, user_id: int, amount: int = 1) -> FarmResult:
 
     farm_stats = self.daily_stats.inc_shroom_count(farm, user_id, amount)
 

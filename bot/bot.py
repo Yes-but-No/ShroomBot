@@ -6,10 +6,11 @@ import os
 from typing import TYPE_CHECKING
 
 import discord
+from discord import app_commands
 from discord.ext import commands, tasks
 
-from shroom import ShroomFarm
-from utils import int_to_ordinal
+from bot.shroom import ShroomFarm
+from bot.utils import int_to_ordinal
 
 if TYPE_CHECKING:
   from discord import Message
@@ -26,6 +27,10 @@ class ShroomBot(commands.Bot):
     self._lock = asyncio.Lock()
     self.presence_selector = True
     super().__init__(*args, **kwargs)
+    
+    self.default_tree_on_error = self.tree.on_error # this needs to be after __init__ since it is created in there
+    self.tree.error(self.on_tree_error)
+
 
   @tasks.loop(time=SHROOM_RESET_TIME)
   async def update_stats_loop(self):
@@ -60,6 +65,21 @@ class ShroomBot(commands.Bot):
     await self.tree.sync(guild=DEV_SERVER)
 
     await self.tree.sync()
+
+  async def on_tree_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if isinstance(error, app_commands.MissingPermissions):
+      msg = "You do not have the required permissions to run this command"
+    else:
+      msg = "An unknown error has occurred"
+      await self.default_tree_on_error(interaction, error) # type: ignore
+    await interaction.response.send_message(
+      embed=discord.Embed(
+        title="Error!",
+        description=msg,
+        colour=discord.Colour.red()
+      )
+    )
+    
 
   async def on_command_error(self, context: commands.Context[ShroomBot], exception: commands.errors.CommandError, /) -> None:
     if isinstance(
@@ -112,7 +132,7 @@ class ShroomBot(commands.Bot):
         )
       else:
         async with self._lock:
-          result = await self.shroom_farm.farm(farm, message.author.id) # type: ignore
+          result = await self.shroom_farm.farm(farm, message.author.id)
         await message.add_reaction("🍄")
 
         embeds = []

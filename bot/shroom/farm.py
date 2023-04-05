@@ -4,16 +4,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, TypedDict
 
-if TYPE_CHECKING:
-  from shroom.id_types import ServerID, UserID, ChannelID
-
 
 class FarmDict(TypedDict):
   """
   Describes the format of Farms in the `Farm` collection in the database
   These dictionaries can be inserted into the database with no issue
   """
-  _id: ServerID
+  _id: int
   total_farmed: int
   last_farmer: int | None
   farm_channel: int | None
@@ -24,10 +21,10 @@ class FarmDict(TypedDict):
 
 @dataclass
 class Farm:
-  _id: ServerID
+  _id: int
   total_farmed: int = 0
-  last_farmer: UserID | None = None
-  farm_channel: ChannelID | None = None
+  last_farmer: int | None = None
+  farm_channel: int | None = None
   daily_goal: int | None = None
   updated: datetime = datetime.utcnow()
 
