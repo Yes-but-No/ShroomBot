@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Self, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from bot.shroom.ranks import RANKS
 
@@ -49,7 +49,7 @@ class User:
     else:
       return self.farmed >= self.next_rank.requirement
     
-  def update_rank(self) -> Self:
+  def update_rank(self) -> User:
     """Updates user's rank to their highest possible rank,
     which may be higher or lower than the user's current rank
     """
