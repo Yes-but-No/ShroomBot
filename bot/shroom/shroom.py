@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from motor import motor_asyncio
 
 from bot.shroom.farm import Farm
-from bot.shroom.manager import FarmingManager
 from bot.shroom.ranks import Rank
 from bot.shroom.stats import DailyStats
 from bot.shroom.user import User
@@ -26,7 +25,7 @@ class FarmResult:
   daily_goal: int | None = None
 
 
-class ShroomFarm(FarmingManager):
+class ShroomFarm:
   def __init__(self, url: str = "localhost"):
     self.db_url = url
     self._db_client = motor_asyncio.AsyncIOMotorClient(url)
@@ -256,40 +255,34 @@ class ShroomFarm(FarmingManager):
     self.daily_stats.save_farm_stats(farm_stats)
 
   async def farm(self, farm: Farm, user_id: int, amount: int = 1) -> FarmResult:
-    await self.acquire_farm(farm._id)
+    farm_stats = self.daily_stats.inc_shroom_count(farm, user_id, amount)
 
-    try:
-      farm_stats = self.daily_stats.inc_shroom_count(farm, user_id, amount)
+    farm.total_farmed += amount
+    farm.last_farmer = user_id
 
-      farm.total_farmed += amount
-      farm.last_farmer = user_id
+    user = await self.get_user(user_id) or await self.create_user(user_id)
+    user.farmed += amount
+    user.tokens += amount
 
-      user = await self.get_user(user_id) or await self.create_user(user_id)
-      user.farmed += amount
-      user.tokens += amount
+    result = FarmResult(
+      farm_stats.farmed,
+      farm_stats.daily_goal_reached,
+      user
+    )
 
-      result = FarmResult(
-        farm_stats.farmed,
-        farm_stats.daily_goal_reached,
-        user
-      )
+    if user.ranked_up:
+      user = user.update_rank()
+      result.user_ranked_up = True
 
-      if user.ranked_up:
-        user = user.update_rank()
-        result.user_ranked_up = True
+    if all((
+      farm_stats.daily_goal is not None,
+      farm_stats.daily_goal_reached,
+      not farm_stats.awarded_daily
+    )):
+      await self.award_contributors(farm_stats)
+      result.awarding_daily = True
 
-      if all((
-        farm_stats.daily_goal is not None,
-        farm_stats.daily_goal_reached,
-        not farm_stats.awarded_daily
-      )):
-        await self.award_contributors(farm_stats)
-        result.awarding_daily = True
+    await self.save_user(user)
+    await self.save_farm(farm)
 
-      await self.save_user(user)
-      await self.save_farm(farm)
-
-      return result
-    
-    finally:
-      self.release_farm(farm._id)
+    return result
