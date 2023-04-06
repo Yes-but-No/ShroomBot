@@ -10,7 +10,6 @@ import discord
 from discord.ext import commands
 
 from bot.embeds import FARM_ALREADY_EXISTS, FARM_CREATE_SUCCESS
-from bot.utils import int_to_ordinal
 
 if TYPE_CHECKING:
   from bot import ShroomBot
