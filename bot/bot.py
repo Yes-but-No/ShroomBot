@@ -94,7 +94,6 @@ class ShroomBot(commands.Bot):
         colour=discord.Colour.red()
       )
     )
-    
 
   async def on_command_error(self, context: commands.Context[ShroomBot], exception: commands.errors.CommandError, /) -> None:
     if isinstance(
@@ -122,8 +121,9 @@ class ShroomBot(commands.Bot):
     except Exception: # It means we can't send a message so we ignore it
       pass
 
-  async def farm(self, farm: Farm, message: Message):
-    result = await self.shroom_farm.farm(farm, message.author.id)
+
+  async def farm(self, farm: Farm, message: Message, amount: int = 1):
+    result = await self.shroom_farm.farm(farm, message.author.id, amount)
     await message.add_reaction("🍄")
 
     embeds = []
