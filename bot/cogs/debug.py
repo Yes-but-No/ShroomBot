@@ -18,14 +18,9 @@ if TYPE_CHECKING:
 class Debug(commands.Cog):
   def __init__(self, bot: ShroomBot):
     self.bot = bot
-
-  @property
-  def cog_check(self):
-    return commands.is_owner()
   
-
   @commands.command(hidden=True, aliases=["eval"])
-  @commands.is_owner() # Just in case the cog_check didn't work properly
+  @commands.is_owner()
   async def exec(
     self,
     ctx: commands.Context,
@@ -39,6 +34,10 @@ class Debug(commands.Cog):
 
     sout = StringIO()
     serr = StringIO()
+
+    exec_vars = {
+      "discord": discord
+    }
   
     with (
       contextlib.redirect_stdout(sout),
@@ -49,7 +48,7 @@ class Debug(commands.Cog):
           "async def exec_func(ctx, bot):\n"
           f"{line_break.join((' '*2 + line) for line in code.split(line_break))}"
         )
-        exec(func, {"discord": discord})
+        exec(func, exec_vars.update(locals()))
 
         result = await locals()["exec_func"](ctx, self.bot)
       except BaseException as e:
@@ -76,15 +75,16 @@ class Debug(commands.Cog):
       title="Code Output",
       colour=colour
     ).add_field(
-      name="Returned", value=f"```\n{result}```"
+      name="Returned", value=f"```\n{result}```", inline=False
     ).add_field(
-      name="Output", value=f"```py\n{output}```"
+      name="Output", value=f"```py\n{output}```", inline=False
     )
 
     await ctx.reply(embed=embed)
 
   
   @commands.command(hidden=True)
+  @commands.is_owner()
   async def save_stats(self, ctx: commands.Context):
     result = await self.bot.shroom_farm.save_daily_stats(self.bot.shroom_farm.daily_stats)
     if result:
@@ -95,6 +95,7 @@ class Debug(commands.Cog):
 
   
   @commands.command(hidden=True)
+  @commands.is_owner()
   async def show_server_stats(
     self,
     ctx: commands.Context,
@@ -108,6 +109,7 @@ class Debug(commands.Cog):
 
   
   @commands.command(hidden=True)
+  @commands.is_owner()
   async def show_user_info(
     self,
     ctx: commands.Context,
@@ -121,6 +123,7 @@ class Debug(commands.Cog):
 
   
   @commands.command(hidden=True)
+  @commands.is_owner()
   @commands.guild_only()
   async def force_setup(
     self,
@@ -139,6 +142,7 @@ class Debug(commands.Cog):
 
   
   @commands.command(hidden=True)
+  @commands.is_owner()
   @commands.guild_only()
   async def farm(
     self,
@@ -153,41 +157,5 @@ class Debug(commands.Cog):
 
     if farm is None:
       return
-
-    result = await self.bot.shroom_farm.farm(farm, ctx.author.id, amount) # type: ignore
-
-    embeds = []
-
-    embed = discord.Embed(
-      title="Mushroom farmed!",
-      description=f"{int_to_ordinal(result.farmed)} mushroom farmed today!",
-      colour=discord.Colour.green()
-    )
-    # If we have not reached daily goal, show how many more to the daily goal
-    if (
-      not result.daily_goal_reached
-      and result.daily_goal is not None
-    ):
-      embed.description += f"\n{result.daily_goal-result.farmed} more mushrooms till the daily goal!" # type: ignore
     
-    embeds.append(embed)
-
-    # Check if server has reached daily goal
-    if result.awarding_daily:
-      embeds.append(
-        discord.Embed(
-          title="Daily goal reached!",
-          description="All contributors have been awarded double Shroom Tokens!",
-          colour=discord.Colour.green()
-        )
-      )
-    if result.user_ranked_up:
-      embeds.append(
-        discord.Embed(
-          title=f"{ctx.author.name} ranked up!",
-          description=f"Your rank is now `{result.user.rank.name}`!",
-          colour=discord.Colour.green()
-        )
-      )
-    
-    await ctx.reply(embeds=embeds)
+    await self.bot.farm(farm, ctx.message, amount)
