@@ -127,6 +127,7 @@ class Farm(commands.GroupCog, group_name="farm"):
     interaction: discord.Interaction,
     member: Optional[discord.Member] = None
   ):
+    """Get the stats of a user"""
     if member is None:
       member = interaction.user # type: ignore
     else:
