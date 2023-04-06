@@ -11,6 +11,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from bot.cogs import COGS
+from bot.manager import FarmingManager
 from bot.shroom import ShroomFarm
 from bot.utils import int_to_ordinal
 
@@ -31,6 +32,7 @@ class ShroomBot(commands.Bot):
     url = kwargs.pop("mongo_url", "localhost")
     self.shroom_farm = ShroomFarm(url)
     self._lock = asyncio.Lock()
+    self.manager = FarmingManager()
     self.presence_selector = True
     super().__init__(*args, **kwargs)
     
@@ -123,44 +125,53 @@ class ShroomBot(commands.Bot):
 
 
   async def farm(self, farm: Farm, message: Message, amount: int = 1):
-    result = await self.shroom_farm.farm(farm, message.author.id, amount)
-    await message.add_reaction("🍄")
+    await self.manager.acquire_farm(farm._id) # Ensure that a server is only processed one at a time
+    try:
+      result = await self.shroom_farm.farm(farm, message.author.id, amount)
 
-    embeds = []
+      embeds = []
 
-    embed = discord.Embed(
-      title="Mushroom farmed!",
-      description=f"{int_to_ordinal(result.farmed)} mushroom farmed today!",
-      colour=discord.Colour.green()
-    )
-    # If we have not reached daily goal, show how many more to the daily goal
-    if (
-      not result.daily_goal_reached
-      and result.daily_goal is not None
-    ):
-      embed.description += f"\n{result.daily_goal-result.farmed} more mushrooms till the daily goal!" # type: ignore
-    
-    embeds.append(embed)
-
-    # Check if server has reached daily goal
-    if result.awarding_daily:
-      embeds.append(
-        discord.Embed(
-          title="Daily goal reached!",
-          description="All contributors have been awarded double Shroom Tokens!",
-          colour=discord.Colour.green()
-        )
+      embed = discord.Embed(
+        title="Mushroom farmed!",
+        description=f"{int_to_ordinal(result.farmed)} mushroom farmed today!",
+        colour=discord.Colour.green()
       )
-    if result.user_ranked_up:
-      embeds.append(
-        discord.Embed(
-          title=f"{message.author.name} ranked up!",
-          description=f"Your rank is now `{result.user.rank.name}`!",
-          colour=discord.Colour.green()
+      # If we have not reached daily goal, show how many more to the daily goal
+      if (
+        not result.daily_goal_reached
+        and result.daily_goal is not None
+      ):
+        embed.description += f"\n{result.daily_goal-result.farmed} more mushrooms till the daily goal!" # type: ignore
+      
+      embeds.append(embed)
+
+      # Check if server has reached daily goal
+      if result.awarding_daily:
+        embeds.append(
+          discord.Embed(
+            title="Daily goal reached!",
+            description="All contributors have been awarded double Shroom Tokens!",
+            colour=discord.Colour.green()
+          )
         )
-      )
-    
-    return await message.reply(embeds=embeds)
+      if result.user_ranked_up:
+        embeds.append(
+          discord.Embed(
+            title=f"{message.author.name} ranked up!",
+            description=f"Your rank is now `{result.user.rank.name}`!",
+            colour=discord.Colour.green()
+          )
+        )
+      
+
+      try:
+        await message.add_reaction("🍄")
+        await message.reply(embeds=embeds, mention_author=False)
+      except discord.NotFound:
+        # Message probably got deleted
+        await message.channel.send(message.author.mention, embeds=embeds, silent=True)
+    finally:
+      self.manager.release_farm(farm._id)
 
 
   async def on_message(self, message: Message):
@@ -180,7 +191,6 @@ class ShroomBot(commands.Bot):
       elif farm.farm_channel != message.channel.id:
         return
       elif farm.last_farmer == message.author.id:
-        await message.add_reaction("❌")
         embed = discord.Embed(
           title="You cannot farm mushrooms now",
           description="You can only farm mushrooms one at a time",
@@ -188,6 +198,11 @@ class ShroomBot(commands.Bot):
         )
       else:
         return await self.farm(farm, message)
-      await message.reply(embed=embed)
+      try:
+        await message.add_reaction("❌")
+        await message.reply(embed=embed, mention_author=False)
+      except discord.NotFound:
+        # Message got deleted
+        await message.channel.send(message.author.mention, embed=embed, silent=True)
     else:
       await self.process_commands(message)
