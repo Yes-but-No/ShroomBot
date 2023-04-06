@@ -2,18 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, date
-from typing import TYPE_CHECKING, Any, Callable, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
-from utils import str_key_to_int, int_key_to_str
+from bson import ObjectId
+
+from bot.utils import str_key_to_int, int_key_to_str
 
 if TYPE_CHECKING:
-  from dataclasses import Field
-
-  from farm import Farm
-  from id_types import ServerID, UserID
+  from shroom.farm import Farm
 
 class DailyFarmStatsDict(TypedDict):
-  id: ServerID
+  id: int
   farmed: int
   daily_goal: int | None
   awarded_daily: bool
@@ -29,11 +28,11 @@ class DailyStatsDict(TypedDict):
 
 @dataclass
 class DailyFarmStats:
-  id: ServerID
+  id: int
   farmed: int = 0
   daily_goal: int | None = None
   awarded_daily: bool = False # This is needed to ensure we don't award contributors twice
-  contributors: dict[UserID, int] = field(default_factory=dict)
+  contributors: dict[int, int] = field(default_factory=dict)
 
   @classmethod
   def from_db(cls, d: DailyFarmStatsDict):
@@ -42,7 +41,7 @@ class DailyFarmStats:
       farmed=d["farmed"],
       daily_goal=d["daily_goal"],
       awarded_daily=d["awarded_daily"],
-      contributors=str_key_to_int(d["contributors"]) # type: ignore
+      contributors=str_key_to_int(d["contributors"])
     )
 
   @property
@@ -71,23 +70,25 @@ class DailyFarmStats:
 class DailyStats:
   date: datetime = datetime.utcnow()
   total: int = 0
-  farms: dict[ServerID, DailyFarmStatsDict] = field(default_factory=dict)
-  users: dict[UserID, int] = field(default_factory=dict)
+  farms: dict[int, DailyFarmStatsDict] = field(default_factory=dict)
+  users: dict[int, int] = field(default_factory=dict)
+  _id: ObjectId | None = None
 
   @classmethod
   def from_db(cls, d: DailyStatsDict):
     return cls(
       date=d["date"],
       total=d["total"],
-      farms=str_key_to_int(d["farms"]), # type: ignore
-      users=str_key_to_int(d["users"])  # type: ignore
+      farms=str_key_to_int(d["farms"]),
+      users=str_key_to_int(d["users"]),
+      _id=d.get("_id")
     )
 
   @property
   def is_today(self) -> bool:
     return self.date.date() == date.today()
 
-  def get_farm_stats(self, farm_id: ServerID) -> DailyFarmStats | None:
+  def get_farm_stats(self, farm_id: int) -> DailyFarmStats | None:
     farm = self.farms.get(farm_id)
     if farm is None:
       return None
@@ -97,10 +98,10 @@ class DailyStats:
   def save_farm_stats(self, farm_stats: DailyFarmStats):
     self.farms[farm_stats.id] = farm_stats.to_dict()
     
-  def get_user_farmed(self, user_id: UserID) -> int:
+  def get_user_farmed(self, user_id: int) -> int:
     return self.users.get(user_id, 0)
   
-  def inc_shroom_count(self, farm: Farm, user_id: UserID, amount: int = 1) -> DailyFarmStats:
+  def inc_shroom_count(self, farm: Farm, user_id: int, amount: int = 1) -> DailyFarmStats:
     self.total += amount
 
     farm_stats = self.get_farm_stats(farm._id) or DailyFarmStats(farm._id, daily_goal=farm.daily_goal)

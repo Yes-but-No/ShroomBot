@@ -4,15 +4,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, TypedDict
 
-from ranks import RANKS
+from bot.shroom.ranks import RANKS
 
 if TYPE_CHECKING:
-  from id_types import UserID
-  from ranks import Rank
+  from shroom.ranks import Rank
 
 
 class UserDict(TypedDict):
-  _id: UserID
+  _id: int
   joined: datetime
   farmed: int
   tokens: int
@@ -22,7 +21,7 @@ class UserDict(TypedDict):
 
 @dataclass
 class User:
-  _id: UserID
+  _id: int
   joined: datetime = datetime.utcnow()
   farmed: int = 0
   tokens: int = 0
@@ -49,6 +48,20 @@ class User:
       return False
     else:
       return self.farmed >= self.next_rank.requirement
+    
+  def update_rank(self) -> User:
+    """Updates user's rank to their highest possible rank,
+    which may be higher or lower than the user's current rank
+    """
+    if self.farmed < self.rank.requirement:
+      while self.farmed < self.rank.requirement:
+        if self.rank_enum == 0:
+          break
+        self.rank_enum -= 1
+    else:
+      while self.ranked_up:
+        self.rank_enum += 1
+    return self
     
   def to_dict(self, include_id=True) -> UserDict:
     d = {
