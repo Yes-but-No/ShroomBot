@@ -8,6 +8,8 @@ from discord import app_commands
 
 from bot import ShroomBot
 
+import aiohttp
+
 DATABASE_URL = os.getenv("MONGO_URL")
 
 if DATABASE_URL is None:
