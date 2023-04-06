@@ -17,6 +17,8 @@ from bot.utils import int_to_ordinal
 if TYPE_CHECKING:
   from discord import Message
 
+  from bot.shroom.farm import Farm
+
 DEV_SERVER = discord.Object(id=os.getenv("DEV_SERVER_ID")) # type: ignore
 SHROOM_RESET_TIME = datetime.time(hour=0, minute=0, tzinfo=datetime.timezone.utc)
 
@@ -120,6 +122,47 @@ class ShroomBot(commands.Bot):
     except Exception: # It means we can't send a message so we ignore it
       pass
 
+  async def farm(self, farm: Farm, message: Message):
+    result = await self.shroom_farm.farm(farm, message.author.id)
+    await message.add_reaction("🍄")
+
+    embeds = []
+
+    embed = discord.Embed(
+      title="Mushroom farmed!",
+      description=f"{int_to_ordinal(result.farmed)} mushroom farmed today!",
+      colour=discord.Colour.green()
+    )
+    # If we have not reached daily goal, show how many more to the daily goal
+    if (
+      not result.daily_goal_reached
+      and result.daily_goal is not None
+    ):
+      embed.description += f"\n{result.daily_goal-result.farmed} more mushrooms till the daily goal!" # type: ignore
+    
+    embeds.append(embed)
+
+    # Check if server has reached daily goal
+    if result.awarding_daily:
+      embeds.append(
+        discord.Embed(
+          title="Daily goal reached!",
+          description="All contributors have been awarded double Shroom Tokens!",
+          colour=discord.Colour.green()
+        )
+      )
+    if result.user_ranked_up:
+      embeds.append(
+        discord.Embed(
+          title=f"{message.author.name} ranked up!",
+          description=f"Your rank is now `{result.user.rank.name}`!",
+          colour=discord.Colour.green()
+        )
+      )
+    
+    return await message.reply(embeds=embeds)
+
+
   async def on_message(self, message: Message):
     if message.author.bot:
       return
@@ -144,44 +187,7 @@ class ShroomBot(commands.Bot):
           colour=discord.Colour.red()
         )
       else:
-        result = await self.shroom_farm.farm(farm, message.author.id)
-        await message.add_reaction("🍄")
-
-        embeds = []
-
-        embed = discord.Embed(
-          title="Mushroom farmed!",
-          description=f"{int_to_ordinal(result.farmed)} mushroom farmed today!",
-          colour=discord.Colour.green()
-        )
-        # If we have not reached daily goal, show how many more to the daily goal
-        if (
-          not result.daily_goal_reached
-          and result.daily_goal is not None
-        ):
-          embed.description += f"\n{result.daily_goal-result.farmed} more mushrooms till the daily goal!" # type: ignore
-        
-        embeds.append(embed)
-
-        # Check if server has reached daily goal
-        if result.awarding_daily:
-          embeds.append(
-            discord.Embed(
-              title="Daily goal reached!",
-              description="All contributors have been awarded double Shroom Tokens!",
-              colour=discord.Colour.green()
-            )
-          )
-        if result.user_ranked_up:
-          embeds.append(
-            discord.Embed(
-              title=f"{message.author.name} ranked up!",
-              description=f"Your rank is now `{result.user.rank.name}`!",
-              colour=discord.Colour.green()
-            )
-          )
-        
-        return await message.reply(embeds=embeds)
+        return await self.farm(farm, message)
       await message.reply(embed=embed)
     else:
       await self.process_commands(message)
