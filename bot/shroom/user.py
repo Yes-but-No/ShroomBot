@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, TypedDict
 
@@ -15,6 +15,7 @@ class UserDict(TypedDict):
   joined: datetime
   farmed: int
   tokens: int
+  earned_tokens: int
   rank_enum: int
 
 
@@ -22,9 +23,10 @@ class UserDict(TypedDict):
 @dataclass
 class User:
   _id: int
-  joined: datetime = datetime.utcnow()
+  joined: datetime = field(default_factory=datetime.utcnow)
   farmed: int = 0
   tokens: int = 0
+  earned_tokens: int = 0
   rank_enum: int = 0
 
   @property
@@ -68,6 +70,7 @@ class User:
       "joined": self.joined,
       "farmed": self.farmed,
       "tokens": self.tokens,
+      "earned_tokens": self.earned_tokens,
       "rank_enum": self.rank_enum
     }
     if include_id:
