@@ -6,9 +6,9 @@ WHATS_NEW = """
  - Added changelog
 """
 
-CHANGE_LOG = f"""
-{WHATS_NEW}
-"""
+CHANGE_LOG = (
+  WHATS_NEW,
+)
 
 EXTENSIONS = (
   "bot.cog.debug",
