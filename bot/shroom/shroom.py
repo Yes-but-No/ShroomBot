@@ -19,10 +19,10 @@ if TYPE_CHECKING:
 class FarmResult:
   farmed: int
   daily_goal_reached: bool
+  daily_goal: int | None
   user: User
   user_ranked_up: bool = False
   awarding_daily: bool = False
-  daily_goal: int | None = None
 
 
 class ShroomFarm:
@@ -267,6 +267,7 @@ class ShroomFarm:
     result = FarmResult(
       farm_stats.farmed,
       farm_stats.daily_goal_reached,
+      farm_stats.daily_goal,
       user
     )
 
