@@ -21,7 +21,8 @@ bot = ShroomBot(
   command_prefix=when_mentioned_or("$"),
   help_command=None,
   intents=discord.Intents.all(),
-  owner_ids=(751768586699276342, 759195783597129760)
+  owner_ids=(751768586699276342, 759195783597129760),
+  root_logger=True
 )
 
 bot.run(os.getenv("TOKEN")) # type: ignore
