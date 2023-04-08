@@ -68,7 +68,7 @@ class DailyFarmStats:
 
 @dataclass
 class DailyStats:
-  date: datetime = datetime.utcnow()
+  date: datetime = field(default_factory=datetime.utcnow)
   total: int = 0
   farms: dict[int, DailyFarmStatsDict] = field(default_factory=dict)
   users: dict[int, int] = field(default_factory=dict)
