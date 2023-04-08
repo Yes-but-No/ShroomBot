@@ -197,3 +197,7 @@ class Farm(commands.GroupCog, group_name="farm"):
       embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar.url) # type: ignore
       embed.set_footer(text="Started farming")
     await interaction.response.send_message(embed=embed)
+
+
+async def setup(bot: ShroomBot):
+  await bot.add_cog(Farm(bot))
