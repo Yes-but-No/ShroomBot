@@ -3,10 +3,9 @@ from __future__ import annotations
 import os
 
 import discord
+from discord.ext.commands import when_mentioned_or
 
 from bot import ShroomBot
-
-import aiohttp
 
 DATABASE_URL = os.getenv("MONGO_URL")
 
@@ -17,7 +16,7 @@ else:
 
 bot = ShroomBot(
   mongo_url=url,
-  command_prefix="$",
+  command_prefix=when_mentioned_or("$"),
   help_command=None,
   intents=discord.Intents.all(),
   owner_ids=(751768586699276342, 759195783597129760)
