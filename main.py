@@ -33,7 +33,7 @@ async def jerome(interaction: discord.Interaction):
   async with aiohttp.ClientSession() as session:
     async with session.get("https://api.quotable.io/random") as r:
       if r.status == 200:
-        quote = r.json()["content"] # type: ignore
+        quote = await r.json()["content"] # type: ignore
         embed = discord.Embed(
           title="Jerome's Quote:",
           description=quote,
