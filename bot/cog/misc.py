@@ -45,6 +45,7 @@ class Misc(commands.Cog):
 
   @app_commands.command(name="whyjerome")
   async def whyjerome(self, interaction: discord.Interaction):
+    """Everyone asks who is Jerome, but never asks why Jerome"""
     embed = discord.Embed(
         title="Why Jerome:",
         description='The /jerome command gives a random quote',
