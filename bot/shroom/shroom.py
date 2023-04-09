@@ -19,10 +19,10 @@ if TYPE_CHECKING:
 class FarmResult:
   farmed: int
   daily_goal_reached: bool
+  daily_goal: int | None
   user: User
   user_ranked_up: bool = False
   awarding_daily: bool = False
-  daily_goal: int | None = None
 
 
 class ShroomFarm:
@@ -120,7 +120,7 @@ class ShroomFarm:
     return result.modified_count == 1
   
   async def inc_user_tokens(self, user_id: int, tokens: int = 1) -> bool:
-    result = await self.user_db.update_one({"_id": user_id}, {"$inc": {"tokens": tokens}})
+    result = await self.user_db.update_one({"_id": user_id}, {"$inc": {"tokens": tokens, "lifetime_tokens": tokens}})
     return result.modified_count == 1
   
   async def set_user_tokens(self, user_id: int, tokens: int | None = None) -> bool:
@@ -263,10 +263,12 @@ class ShroomFarm:
     user = await self.get_user(user_id) or await self.create_user(user_id)
     user.farmed += amount
     user.tokens += amount
+    user.lifetime_tokens += amount
 
     result = FarmResult(
       farm_stats.farmed,
       farm_stats.daily_goal_reached,
+      farm_stats.daily_goal,
       user
     )
 

@@ -157,4 +157,8 @@ class Debug(commands.Cog):
     if farm is None:
       return
     
-    await self.bot.farm(farm, ctx.message, amount)
+    await self.bot.farm(farm, ctx.message, user_id, amount)
+
+
+async def setup(bot: ShroomBot):
+  await bot.add_cog(Debug(bot))

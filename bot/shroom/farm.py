@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, TypedDict
 
@@ -26,7 +26,7 @@ class Farm:
   last_farmer: int | None = None
   farm_channel: int | None = None
   daily_goal: int | None = None
-  updated: datetime = datetime.utcnow()
+  updated: datetime = field(default_factory=datetime.utcnow)
 
   def to_dict(self, include_id=True, include_time=True) -> FarmDict:
     d = {

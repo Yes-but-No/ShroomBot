@@ -10,7 +10,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
-from bot.cogs import COGS
+from bot.constants import EXTENSIONS
 from bot.manager import FarmingManager
 from bot.shroom import ShroomFarm
 from bot.utils import int_to_ordinal
@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
   from bot.shroom.farm import Farm
 
-DEV_SERVER = discord.Object(id=os.getenv("DEV_SERVER_ID")) # type: ignore
 SHROOM_RESET_TIME = datetime.time(hour=0, minute=0, tzinfo=datetime.timezone.utc)
 
 _log = logging.getLogger(__name__)
@@ -29,7 +28,8 @@ _log = logging.getLogger(__name__)
 
 class ShroomBot(commands.Bot):
   def __init__(self, *args, **kwargs):
-    url = kwargs.pop("mongo_url", "localhost")
+    self.dev_server: discord.Object = kwargs.pop("dev_server")
+    url: str = kwargs.pop("mongo_url", "localhost")
     self.shroom_farm = ShroomFarm(url)
     self._lock = asyncio.Lock()
     self.manager = FarmingManager()
@@ -50,6 +50,7 @@ class ShroomBot(commands.Bot):
       else:
         _log.warn("Daily Stats update was unsuccessful")
 
+
   @tasks.loop(minutes=1)
   async def update_presence_loop(self):
     if self.presence_selector:
@@ -65,6 +66,7 @@ class ShroomBot(commands.Bot):
   async def before_presence_loop(self):
     await self.wait_until_ready()
 
+
   async def setup_hook(self) -> None:
     await self.shroom_farm.setup()
 
@@ -74,14 +76,10 @@ class ShroomBot(commands.Bot):
     self.update_stats_loop.start()
     self.update_presence_loop.start()
 
-    for cog in COGS:
-      _log.info(f"Loading cog `{cog!r}`")
-      await self.add_cog(cog(self))
+    for ext in EXTENSIONS:
+      _log.info(f"Loading extention `{ext}`")
+      await self.load_extension(ext)
 
-    self.tree.copy_global_to(guild=DEV_SERVER)
-    await self.tree.sync(guild=DEV_SERVER)
-
-    await self.tree.sync()
 
   async def on_tree_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.MissingPermissions):
@@ -124,13 +122,13 @@ class ShroomBot(commands.Bot):
       pass
 
 
-  async def farm(self, farm: Farm, message: Message, amount: int = 1):
+  async def farm(self, farm: Farm, message: Message, user_id: int | None = None, amount: int = 1):
     await self.manager.acquire_farm(farm._id) # Ensure that a server is only processed one at a time
     try:
-      result = await self.shroom_farm.farm(farm, message.author.id, amount)
+      user_id = user_id or message.author.id
+      result = await self.shroom_farm.farm(farm, user_id, amount)
 
       embeds = []
-
       embed = discord.Embed(
         title="Mushroom farmed!",
         description=f"{int_to_ordinal(result.farmed)} mushroom farmed today!",
@@ -157,7 +155,7 @@ class ShroomBot(commands.Bot):
       if result.user_ranked_up:
         embeds.append(
           discord.Embed(
-            title=f"{message.author.name} ranked up!",
+            title=f"{message.author.name} ranked up!", # This will be incorrect if user_id is specified, but it's fine
             description=f"Your rank is now `{result.user.rank.name}`!",
             colour=discord.Colour.green()
           )
