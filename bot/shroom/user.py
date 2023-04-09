@@ -15,7 +15,7 @@ class UserDict(TypedDict):
   joined: datetime
   farmed: int
   tokens: int
-  earned_tokens: int
+  lifetime_tokens: int
   rank_enum: int
 
 
@@ -26,7 +26,7 @@ class User:
   joined: datetime = field(default_factory=datetime.utcnow)
   farmed: int = 0
   tokens: int = 0
-  earned_tokens: int = 0
+  lifetime_tokens: int = 0
   rank_enum: int = 0
 
   @property
@@ -70,7 +70,7 @@ class User:
       "joined": self.joined,
       "farmed": self.farmed,
       "tokens": self.tokens,
-      "earned_tokens": self.earned_tokens,
+      "lifetime_tokens": self.lifetime_tokens,
       "rank_enum": self.rank_enum
     }
     if include_id:
