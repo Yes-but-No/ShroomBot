@@ -18,6 +18,7 @@ class CommandManager(commands.Cog):
 
   
   @commands.command()
+  @commands.is_owner()
   async def load_extension(self, ctx: commands.Context, ext: str):
     try:
       await self.bot.load_extension(ext)
@@ -29,6 +30,7 @@ class CommandManager(commands.Cog):
     await ctx.reply(msg, mention_author=False)
 
   @commands.command()
+  @commands.is_owner()
   async def unload_extension(self, ctx: commands.Context, ext: str):
     try:
       await self.bot.unload_extension(ext)
@@ -40,6 +42,7 @@ class CommandManager(commands.Cog):
     await ctx.reply(msg, mention_author=False)
 
   @commands.command()
+  @commands.is_owner()
   async def reload_extension(self, ctx: commands.Context, ext: str):
     try:
       await self.bot.reload_extension(ext)
@@ -52,6 +55,7 @@ class CommandManager(commands.Cog):
 
 
   @commands.command()
+  @commands.is_owner()
   async def sync(self, ctx: commands.Context, option: Optional[Literal["to_server", "clear_server"]] = None):
     if option == "to_server":
       self.bot.tree.copy_global_to(guild=self.bot.dev_server)
