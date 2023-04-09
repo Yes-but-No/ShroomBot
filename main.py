@@ -15,6 +15,8 @@ if DATABASE_URL is None:
 else:
   url = DATABASE_URL
 
+print("Connecting to database at:", url)
+
 bot = ShroomBot(
   dev_server=DEV_SERVER,
   mongo_url=url,
