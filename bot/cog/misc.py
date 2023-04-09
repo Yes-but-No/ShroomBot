@@ -24,10 +24,11 @@ class Misc(commands.Cog):
     
   @app_commands.command(name="jerome")
   async def jerome(self, interaction: discord.Interaction):
+    """Get a random quote that Jerome definitely made"""
     async with aiohttp.ClientSession() as session:
       async with session.get("https://api.quotable.io/random") as r:
         if r.status == 200:
-          quote = await r.json()["content"] # type: ignore
+          quote = (await r.json())["content"] # type: ignore
           embed = discord.Embed(
             title="Jerome's Quote:",
             description=quote,

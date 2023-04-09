@@ -67,3 +67,7 @@ class CommandManager(commands.Cog):
     else:
       synced = await self.bot.tree.sync()
     await ctx.reply(f"Synced {len(synced)} commands {'globally' if option is None else 'to development server'}")
+
+
+async def setup(bot: ShroomBot):
+  await bot.add_cog(CommandManager(bot))
