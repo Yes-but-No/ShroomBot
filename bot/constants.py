@@ -13,5 +13,6 @@ CHANGE_LOG = (
 EXTENSIONS = (
   "bot.cog.debug",
   "bot.cog.farm",
-  "bot.cog.misc"
+  "bot.cog.misc",
+  "bot.cog.command_manager"
 )
