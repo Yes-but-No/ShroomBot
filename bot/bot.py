@@ -21,7 +21,7 @@ if TYPE_CHECKING:
   from bot.config import ConfigDict
   from bot.shroom.farm import Farm
 
-SHROOM_RESET_TIME = datetime.time(hour=0, minute=0, tzinfo=datetime.timezone.utc)
+SHROOM_RESET_TIME = datetime.time(hour=0, minute=0, tzinfo=datetime.timezone.utc) # We should move this to constants
 
 _log = logging.getLogger(__name__)
 
@@ -49,6 +49,14 @@ class ShroomBot(commands.Bot):
     
     self.default_tree_on_error = self.tree.on_error # this needs to be after __init__ since it is created in there
     self.tree.error(self.on_tree_error)
+
+    self.add_check(self.global_command_check)
+
+
+  async def global_command_check(self, ctx: commands.Context):
+    if not await self.is_owner(ctx.author):
+      raise commands.NotOwner("You do not own this bot.")
+    return True
 
 
   def run(self, **kwargs):
@@ -175,7 +183,6 @@ class ShroomBot(commands.Bot):
           )
         )
       
-
       try:
         await message.add_reaction("🍄")
         await message.reply(embeds=embeds, mention_author=False)

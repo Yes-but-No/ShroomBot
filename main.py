@@ -8,7 +8,6 @@ config = get_config_from_env()
 
 bot = ShroomBot(
   config=config,
-  help_command=None,
   intents=discord.Intents.all(),
   owner_ids=(751768586699276342, 759195783597129760)
 )

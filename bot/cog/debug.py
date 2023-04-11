@@ -18,8 +18,8 @@ class Debug(commands.Cog):
   def __init__(self, bot: ShroomBot):
     self.bot = bot
   
-  @commands.command(hidden=True, aliases=["eval"])
-  @commands.is_owner()
+  @commands.command(aliases=["eval"])
+  @commands.is_owner() # We leave this here just in case
   async def exec(
     self,
     ctx: commands.Context,
@@ -82,8 +82,7 @@ class Debug(commands.Cog):
     await ctx.reply(embed=embed)
 
   
-  @commands.command(hidden=True)
-  @commands.is_owner()
+  @commands.command()
   async def save_stats(self, ctx: commands.Context):
     result = await self.bot.shroom_farm.save_daily_stats(self.bot.shroom_farm.daily_stats)
     if result:
@@ -93,8 +92,7 @@ class Debug(commands.Cog):
     await ctx.reply(msg)
 
   
-  @commands.command(hidden=True)
-  @commands.is_owner()
+  @commands.command()
   async def show_server_stats(
     self,
     ctx: commands.Context,
@@ -107,8 +105,7 @@ class Debug(commands.Cog):
       await ctx.reply(str(farm_stats))
 
   
-  @commands.command(hidden=True)
-  @commands.is_owner()
+  @commands.command()
   async def show_user_info(
     self,
     ctx: commands.Context,
@@ -121,8 +118,7 @@ class Debug(commands.Cog):
       await ctx.reply(str(user_info))
 
   
-  @commands.command(hidden=True)
-  @commands.is_owner()
+  @commands.command()
   @commands.guild_only()
   async def force_setup(
     self,
@@ -140,8 +136,7 @@ class Debug(commands.Cog):
     await ctx.reply(embed=embed)
 
   
-  @commands.command(hidden=True)
-  @commands.is_owner()
+  @commands.command()
   @commands.guild_only()
   async def farm(
     self,
