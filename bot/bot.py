@@ -18,6 +18,7 @@ from bot.utils import int_to_ordinal
 if TYPE_CHECKING:
   from discord import Message
 
+  from bot.config import ConfigDict
   from bot.shroom.farm import Farm
 
 SHROOM_RESET_TIME = datetime.time(hour=0, minute=0, tzinfo=datetime.timezone.utc)
@@ -27,28 +28,41 @@ _log = logging.getLogger(__name__)
 
 
 class ShroomBot(commands.Bot):
-  def __init__(self, *args, **kwargs):
-    self.dev_server: discord.Object = kwargs.pop("dev_server")
-    url: str = kwargs.pop("mongo_url", "localhost")
+  def __init__(self, config: ConfigDict, *args, **kwargs):
+    self.dev_server: discord.Object = discord.Object(config["dev_server_id"])
+    self.token: str = config["token"]
+    self.prefix: str = str(config["prefix"])
+    url: str = config.get("mongo_url", "localhost") # type: ignore
+
+    print(f"Connecting to database at: {url}")
+
     self.shroom_farm = ShroomFarm(url)
-    self._lock = asyncio.Lock()
     self.manager = FarmingManager()
+
     self.presence_selector = True
-    super().__init__(*args, **kwargs)
+
+    super().__init__(
+      command_prefix=commands.when_mentioned_or(self.prefix),
+      *args,
+      **kwargs
+    )
     
     self.default_tree_on_error = self.tree.on_error # this needs to be after __init__ since it is created in there
     self.tree.error(self.on_tree_error)
 
 
+  def run(self, **kwargs):
+    super().run(self.token, **kwargs)
+
+
   @tasks.loop(time=SHROOM_RESET_TIME)
   async def update_stats_loop(self):
-    async with self._lock:
-      _log.info("Attempting to update daily stats")
-      result = await self.shroom_farm.update_daily_stats()
-      if result:
-        _log.info("Daily Stats updated successfully")
-      else:
-        _log.warn("Daily Stats update was unsuccessful")
+    _log.info("Attempting to update daily stats")
+    result = await self.shroom_farm.update_daily_stats()
+    if result:
+      _log.info("Daily Stats updated successfully")
+    else:
+      _log.warn("Daily Stats update was unsuccessful")
 
 
   @tasks.loop(minutes=1)
