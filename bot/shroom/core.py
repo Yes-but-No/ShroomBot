@@ -178,7 +178,7 @@ class ShroomFarm:
     await self.stats_db.delete_many({}) # rip
 
   async def update_daily_stats(self) -> bool:
-    if self.daily_stats.date.isoweekday() == 6:
+    if self.daily_stats.date.isoweekday() == 7:
       # If it's a Sunday, we have to clear the `Stats` collection
       await self.clear_daily_stats()
       # We can't tell if it is successful since we don't know how many

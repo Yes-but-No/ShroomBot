@@ -1,6 +1,6 @@
 def int_to_ordinal(n: int) -> str:
   s = str(n)
-  if len(s) == 2 and s[0] == "1":
+  if len(s) >= 2 and s[-2] == "1": # I love bugfixing this
     s += "th"
   elif s[-1] == "1":
     s += "st"
