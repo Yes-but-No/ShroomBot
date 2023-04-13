@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 import datetime
 import logging
-import os
 from typing import TYPE_CHECKING
 
 import discord
@@ -11,6 +9,8 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from bot.constants import EXTENSIONS
+from bot.embeds import UNDER_MAINTENANCE
+from bot.errors import UnderMaintenance
 from bot.manager import FarmingManager
 from bot.shroom import ShroomFarm
 from bot.utils import int_to_ordinal
@@ -18,7 +18,7 @@ from bot.utils import int_to_ordinal
 if TYPE_CHECKING:
   from discord import Message
 
-  from bot.config import ConfigDict
+  from bot.config import Config
   from bot.shroom.farm import Farm
 
 SHROOM_RESET_TIME = datetime.time(hour=0, minute=0, tzinfo=datetime.timezone.utc) # We should move this to constants
@@ -28,11 +28,14 @@ _log = logging.getLogger(__name__)
 
 
 class ShroomBot(commands.Bot):
-  def __init__(self, config: ConfigDict, *args, **kwargs):
-    self.dev_server: discord.Object = discord.Object(config["dev_server_id"])
-    self.token: str = config["token"]
-    self.prefix: str = str(config["prefix"])
-    url: str = config.get("mongo_url", "localhost") # type: ignore
+  def __init__(self, config: Config, *args, **kwargs):
+    self.config = config
+
+    self.dev_server: discord.Object = discord.Object(config.dev_server_id)
+    self.token: str = config.token
+    self.prefix: str = str(config.prefix)
+    self.maintenance_mode = config.maintenance_mode
+    url: str = config.mongo_url
 
     print(f"Connecting to database at: {url}")
 
@@ -51,6 +54,11 @@ class ShroomBot(commands.Bot):
     self.tree.error(self.on_tree_error)
 
     self.add_check(self.global_command_check)
+
+
+  @property
+  def under_maintenance(self) -> bool:
+    return self.maintenance_mode
 
 
   async def global_command_check(self, ctx: commands.Context):
@@ -75,6 +83,11 @@ class ShroomBot(commands.Bot):
 
   @tasks.loop(minutes=1)
   async def update_presence_loop(self):
+    if self.under_maintenance:
+      return await self.change_presence(
+        activity=discord.Game(name="under maintenance"),
+        status=discord.Status.idle
+      )
     if self.presence_selector:
       n = await self.shroom_farm.get_total_weekly_farmed() # technically we could just cache this and just add total to it
       msg = f"{n} farmed this week"                        # but I'm too lazy
@@ -104,6 +117,9 @@ class ShroomBot(commands.Bot):
 
 
   async def on_tree_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if isinstance(error, UnderMaintenance):
+      return await interaction.response.send_message(embed=UNDER_MAINTENANCE)
+    
     if isinstance(error, app_commands.MissingPermissions):
       msg = "You do not have the required permissions to run this command"
     else:
@@ -215,6 +231,8 @@ class ShroomBot(commands.Bot):
           description="You can only farm mushrooms one at a time",
           colour=discord.Colour.red()
         )
+      elif self.under_maintenance:
+        embed = UNDER_MAINTENANCE
       else:
         return await self.farm(farm, message)
       try:

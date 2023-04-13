@@ -36,6 +36,12 @@ DAILY_GOAL_REACHED = discord.Embed(
   colour=discord.Colour.green()
 )
 
+UNDER_MAINTENANCE = discord.Embed(
+  title="Bot is under maintenance",
+  description="Bot is currently under maintenance, please try again later",
+  colour=discord.Colour.red()
+)
+
 def FARM_CREATE_SUCCESS(channel_id: int) -> discord.Embed:
   return discord.Embed(
     title="Success!",
