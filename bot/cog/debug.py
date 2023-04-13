@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import re
 from io import StringIO
 import traceback
@@ -153,6 +154,16 @@ class Debug(commands.Cog):
       return
     
     await self.bot.farm(farm, ctx.message, user_id, amount)
+
+
+  @commands.command()
+  async def toggle_maintenance_mode(self, ctx: commands.Context):
+    m = self.bot.maintenance_mode = not self.bot.maintenance_mode
+
+    if self.bot.config.maintenance_mode != m: # Ensure the bot remembers that it is under maintenance after restarts
+      os.environ["MAINTENANCE_MODE"] = str(m).upper()
+
+    await ctx.reply(f"Bot is now {'not' if not self.bot.maintenance_mode else ''} under maintenance")
 
 
 async def setup(bot: ShroomBot):
