@@ -12,6 +12,8 @@ class FarmDict(TypedDict):
   """
   _id: int
   total_farmed: int
+  most_farmed_daily: int
+  most_farmed_weekly: int
   last_farmer: int | None
   farm_channel: int | None
   daily_goal: int | None
@@ -23,6 +25,8 @@ class FarmDict(TypedDict):
 class Farm:
   _id: int
   total_farmed: int = 0
+  most_farmed_daily: int = 0
+  most_farmed_weekly: int = 0
   last_farmer: int | None = None
   farm_channel: int | None = None
   daily_goal: int | None = None
@@ -31,6 +35,8 @@ class Farm:
   def to_dict(self, include_id=True, include_time=True) -> FarmDict:
     d = {
       "total_farmed": self.total_farmed,
+      "most_farmed_daily": self.most_farmed_daily,
+      "most_farmed_weekly": self.most_farmed_weekly,
       "last_farmer": self.last_farmer,
       "farm_channel": self.farm_channel,
       "daily_goal": self.daily_goal
