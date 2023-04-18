@@ -160,10 +160,37 @@ class ShroomBot(commands.Bot):
       pass
 
 
-  async def farm(self, farm: Farm, message: Message, user_id: int | None = None, amount: int = 1):
+  async def farm(
+      self,
+      farm: Farm,
+      message: Message,
+      user_id: int | None = None,
+      amount: int = 1,
+      ignore_last: bool = False
+    ):
     await self.manager.acquire_farm(farm._id) # Ensure that a server is only processed one at a time
     try:
+
       user_id = user_id or message.author.id
+
+      if not ignore_last and farm.last_farmer == user_id:
+        embed = discord.Embed(
+          title="You cannot farm mushrooms now",
+          description="You can only farm mushrooms one at a time",
+          colour=discord.Colour.red()
+        )
+        try:
+          await message.add_reaction("❌")
+          await message.reply(
+            embed=embed,
+            mention_author=False
+          )
+        except discord.NotFound:
+          await message.channel.send(message.author.mention, embed=embed, silent=True)
+        finally:
+          self.manager.release_farm(farm._id)
+          return
+
       result = await self.shroom_farm.farm(farm, user_id, amount)
 
       embeds = []
@@ -225,18 +252,11 @@ class ShroomBot(commands.Bot):
         )
       elif farm.farm_channel != message.channel.id:
         return
-      elif farm.last_farmer == message.author.id:
-        embed = discord.Embed(
-          title="You cannot farm mushrooms now",
-          description="You can only farm mushrooms one at a time",
-          colour=discord.Colour.red()
-        )
       elif self.under_maintenance:
         embed = UNDER_MAINTENANCE
       else:
         return await self.farm(farm, message)
       try:
-        await message.add_reaction("❌")
         await message.reply(embed=embed, mention_author=False)
       except discord.NotFound:
         # Message got deleted
