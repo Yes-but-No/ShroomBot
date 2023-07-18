@@ -97,26 +97,26 @@ class Debug(commands.Cog):
   async def show_server_stats(
     self,
     ctx: commands.Context,
-    server_id: int | None = None
+    server: discord.Guild
   ):
-    if server_id is None:
-      server_id = ctx.guild.id # type: ignore
-    farm_stats = self.bot.shroom_farm.daily_stats.get_farm_stats(server_id)
+    farm_stats = self.bot.shroom_farm.daily_stats.get_farm_stats(server.id)
     if farm_stats is not None:
       await ctx.reply(str(farm_stats))
+    else:
+      await ctx.reply("Server not found")
 
   
   @commands.command()
   async def show_user_info(
     self,
     ctx: commands.Context,
-    user_id: int | None = None
+    user: discord.User
   ):
-    if user_id is None:
-      user_id = ctx.author.id
-    user_info = await self.bot.shroom_farm.get_user(user_id)
+    user_info = await self.bot.shroom_farm.get_user(user.id)
     if user_info is not None:
       await ctx.reply(str(user_info))
+    else:
+      await ctx.reply("User not found")
 
   
   @commands.command()
