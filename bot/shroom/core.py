@@ -260,6 +260,15 @@ class ShroomFarm:
     farm.total_farmed += amount
     farm.last_farmer = user_id
 
+    if farm_stats.farmed > farm.most_farmed_daily:
+      farm.most_farmed_daily = farm_stats.farmed
+
+    # This is most definitely readable
+    if (weekly := await self.get_server_weekly_farmed(farm._id)) > farm.most_farmed_weekly:
+      # It might be inefficient to keep making a database call just to get the amount farmed weekly
+      # It will probably be wise to implement a cache system sometime in the future
+      farm.most_farmed_weekly = weekly
+
     user = await self.get_user(user_id) or await self.create_user(user_id)
     user.farmed += amount
     user.tokens += amount

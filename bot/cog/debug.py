@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import re
 from io import StringIO
 import traceback
@@ -18,8 +19,8 @@ class Debug(commands.Cog):
   def __init__(self, bot: ShroomBot):
     self.bot = bot
   
-  @commands.command(hidden=True, aliases=["eval"])
-  @commands.is_owner()
+  @commands.command(aliases=["eval"])
+  @commands.is_owner() # We leave this here just in case
   async def exec(
     self,
     ctx: commands.Context,
@@ -82,8 +83,7 @@ class Debug(commands.Cog):
     await ctx.reply(embed=embed)
 
   
-  @commands.command(hidden=True)
-  @commands.is_owner()
+  @commands.command()
   async def save_stats(self, ctx: commands.Context):
     result = await self.bot.shroom_farm.save_daily_stats(self.bot.shroom_farm.daily_stats)
     if result:
@@ -93,36 +93,33 @@ class Debug(commands.Cog):
     await ctx.reply(msg)
 
   
-  @commands.command(hidden=True)
-  @commands.is_owner()
+  @commands.command()
   async def show_server_stats(
     self,
     ctx: commands.Context,
-    server_id: int | None = None
+    server: discord.Guild
   ):
-    if server_id is None:
-      server_id = ctx.guild.id # type: ignore
-    farm_stats = self.bot.shroom_farm.daily_stats.get_farm_stats(server_id)
+    farm_stats = self.bot.shroom_farm.daily_stats.get_farm_stats(server.id)
     if farm_stats is not None:
       await ctx.reply(str(farm_stats))
+    else:
+      await ctx.reply("Server not found")
 
   
-  @commands.command(hidden=True)
-  @commands.is_owner()
+  @commands.command()
   async def show_user_info(
     self,
     ctx: commands.Context,
-    user_id: int | None = None
+    user: discord.User
   ):
-    if user_id is None:
-      user_id = ctx.author.id
-    user_info = await self.bot.shroom_farm.get_user(user_id)
+    user_info = await self.bot.shroom_farm.get_user(user.id)
     if user_info is not None:
       await ctx.reply(str(user_info))
+    else:
+      await ctx.reply("User not found")
 
   
-  @commands.command(hidden=True)
-  @commands.is_owner()
+  @commands.command()
   @commands.guild_only()
   async def force_setup(
     self,
@@ -140,8 +137,7 @@ class Debug(commands.Cog):
     await ctx.reply(embed=embed)
 
   
-  @commands.command(hidden=True)
-  @commands.is_owner()
+  @commands.command()
   @commands.guild_only()
   async def farm(
     self,
@@ -157,7 +153,17 @@ class Debug(commands.Cog):
     if farm is None:
       return
     
-    await self.bot.farm(farm, ctx.message, user_id, amount)
+    await self.bot.farm(farm, ctx.message, user_id, amount, True)
+
+
+  @commands.command()
+  async def toggle_maintenance_mode(self, ctx: commands.Context):
+    m = self.bot.maintenance_mode = not self.bot.maintenance_mode
+
+    if self.bot.config.maintenance_mode != m: # Ensure the bot remembers that it is under maintenance after restarts
+      os.environ["MAINTENANCE_MODE"] = str(m).upper()
+
+    await ctx.reply(f"Bot is now {'not' if not self.bot.maintenance_mode else ''} under maintenance")
 
 
 async def setup(bot: ShroomBot):

@@ -7,6 +7,7 @@ import discord
 
 from typing import TYPE_CHECKING, Optional
 
+from bot.checks import under_maintenance
 from bot.embeds import (
   ACCOUNT_NOT_FOUND,
   CHANGE_FARM_CHANNEL_NOT_SET_UP,
@@ -36,6 +37,7 @@ class Farm(commands.GroupCog, group_name="farm"):
 
   @app_commands.command(name="setup")
   @app_commands.describe(channel="The channel where you want mushrooms to be farmed")
+  @under_maintenance()
   @app_commands.checks.has_permissions(administrator=True)
   async def setup_farm(
     self,
@@ -54,6 +56,7 @@ class Farm(commands.GroupCog, group_name="farm"):
 
   @app_commands.command(name="setchannel")
   @app_commands.describe(channel="The channel where you want mushrooms to be farmed")
+  @under_maintenance()
   @app_commands.checks.has_permissions(administrator=True)
   async def set_channel(
     self,
@@ -72,6 +75,7 @@ class Farm(commands.GroupCog, group_name="farm"):
 
   @app_commands.command(name="setdailygoal")
   @app_commands.describe(goal="The target number of mushrooms to farm each day")
+  @under_maintenance()
   @app_commands.checks.has_permissions(administrator=True)
   async def set_goal(
     self,
