@@ -163,7 +163,7 @@ class Debug(commands.Cog):
     if self.bot.config.maintenance_mode != m: # Ensure the bot remembers that it is under maintenance after restarts
       os.environ["MAINTENANCE_MODE"] = str(m).upper()
 
-    await ctx.reply(f"Bot is now {'not' if not self.bot.maintenance_mode else ''} under maintenance")
+    await ctx.reply(f"Bot is now{' not ' if not self.bot.maintenance_mode else ' '}under maintenance")
 
 
 async def setup(bot: ShroomBot):
