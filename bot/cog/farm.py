@@ -118,7 +118,13 @@ class Farm(commands.GroupCog, group_name="farm"):
       ).add_field(
         name="Daily Goal", value=farm.daily_goal
       ).add_field(
-        name="Farming Channel", value=f"<#{farm.farm_channel}>", inline=False
+        name="Farming Channel", value=f"<#{farm.farm_channel}>"
+      ).add_field(
+        name="Recent Farmer", value=f"<@{farm.last_farmer}>"
+      ).add_field(
+        name="Most Farmed Daily", value=farm.most_farmed_daily
+      ).add_field(
+        name="Most Farmed Weekly", value=farm.most_farmed_weekly
       )
       embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.display_avatar.url) # type: ignore
       embed.set_footer(text=f'Requested by {interaction.user!s}', icon_url=interaction.user.display_avatar.url)

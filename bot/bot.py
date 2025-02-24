@@ -167,7 +167,7 @@ class ShroomBot(commands.Bot):
       user_id: int | None = None,
       amount: int = 1,
       ignore_last: bool = False
-    ):
+  ):
     await self.manager.acquire_farm(farm._id) # Ensure that a server is only processed one at a time
     try:
 

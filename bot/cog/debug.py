@@ -84,6 +84,17 @@ class Debug(commands.Cog):
 
   
   @commands.command()
+  async def reinvoke(
+    self,
+    ctx: commands.Context,
+    message: discord.Message | None = None
+  ):
+    if message is None:
+      message = await ctx.channel.fetch_message(ctx.message.reference.message_id) # type: ignore
+    await self.bot.process_commands(message)
+
+  
+  @commands.command()
   async def save_stats(self, ctx: commands.Context):
     result = await self.bot.shroom_farm.save_daily_stats(self.bot.shroom_farm.daily_stats)
     if result:

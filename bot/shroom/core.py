@@ -44,9 +44,13 @@ class ShroomFarm:
     else:
       self.daily_stats = DailyStats()
 
+
+
   ##################################
   ### Server Collection Operations
   ##################################
+
+
 
   async def save_farm(self, farm: Farm) -> bool:
     result = await self.farm_db.update_one(
@@ -87,9 +91,13 @@ class ShroomFarm:
     farm.daily_goal = daily_goal
     await self.save_farm(farm)
 
+
+
   ################################
   ### User Collection Operations
   ################################
+
+
 
   async def save_user(self, user: User) -> bool:
     result = await self.user_db.update_one(
@@ -148,9 +156,13 @@ class ShroomFarm:
     result = await self.user_db.update_one({"_id": user_id}, {"$set": {"rank_enum": enum}})
     return result.modified_count == 1
 
+
+
   ################################
   ### Stat Collection Operations
   ################################
+
+
 
   async def get_latest_daily_stats(self) -> DailyStats | None:
     stats: DailyStatsDict | None = await self.stats_db.find_one({}, sort=[("$natural", -1)])
@@ -235,16 +247,108 @@ class ShroomFarm:
         contributors.update(farm_stats["contributors"])
     return {int(k): v for k, v in contributors.items()}
   
-  def get_server_top_daily_contributors(self, farm_id: int) -> dict[int, int]:
+
+
+  ################################
+  ### Leaderboard Operations
+  ################################
+
+
+
+  async def get_top_lifetime_farmed_servers(self, limit: int = 10) -> list[Farm]:
+    """|coro|
+
+    Returns a list of the top `limit` servers farmed
+    """
+    cursor = self.farm_db.find({}, sort=[("total_farmed", -1)], limit=limit)
+    farms = []
+    async for farm in cursor:
+      farms.append(Farm(**farm))
+    return farms
+  
+  async def get_top_most_daily_farmed_servers(self, limit: int = 10) -> list[Farm]:
+    """|coro|
+
+    Returns a list of the top `limit` servers farmed today
+    """
+    cursor = self.farm_db.find({}, sort=[("most_farmed_daily", -1)], limit=limit)
+    farms = []
+    async for farm in cursor:
+      farms.append(Farm(**farm))
+    return farms
+  
+  async def get_top_weekly_farmed_servers(self, limit: int = 10) -> list[Farm]:
+    """|coro|
+
+    Returns a list of the top `limit` servers farmed this week
+    """
+    cursor = self.farm_db.find({}, sort=[("most_farmed_weekly", -1)], limit=limit)
+    farms = []
+    async for farm in cursor:
+      farms.append(Farm(**farm))
+    return farms
+  
+  async def get_top_lifetime_farmed_users(self, limit: int = 10) -> list[User]:
+    """|coro|
+
+    Returns a list of the top `limit` users farmed
+    """
+    cursor = self.user_db.find({}, sort=[("farmed", -1)], limit=limit)
+    users = []
+    async for user in cursor:
+      users.append(User(**user))
+    return users
+  
+  async def get_top_tokens_users(self, limit: int = 10) -> list[User]:
+    """|coro|
+
+    Returns a list of the top `limit` users with the most tokens
+    """
+    cursor = self.user_db.find({}, sort=[("tokens", -1)], limit=limit)
+    users = []
+    async for user in cursor:
+      users.append(User(**user))
+    return users
+  
+  async def get_top_lifetime_tokens_users(self, limit: int = 10) -> list[User]:
+    """|coro|
+
+    Returns a list of the top `limit` users with the most lifetime tokens
+    """
+    cursor = self.user_db.find({}, sort=[("lifetime_tokens", -1)], limit=limit)
+    users = []
+    async for user in cursor:
+      users.append(User(**user))
+    return users
+  
+  def get_top_daily_farmed_servers(self, limit: int = 10) -> list[DailyFarmStats]:
+    """Returns a list of the top `limit` servers farmed today"""
+    farms = self.daily_stats.farms
+    return [
+      DailyFarmStats.from_db(farm)
+      for farm in sorted(farms.values(), key=itemgetter("farmed"), reverse=True)[:limit]
+    ]
+
+  # TODO: Monitor the performance of these two functions
+
+  def get_server_top_daily_contributors(self, farm_id: int) -> list[tuple[int, int]] | None:
     farm_stats = self.daily_stats.get_farm_stats(farm_id)
     if farm_stats is None:
-      return dict()
+      return None
     contributors = farm_stats.contributors
-    return {int(k): v for k, v in sorted(contributors.items(), key=itemgetter(1), reverse=True)} 
+    return [(int(k), v) for k, v in sorted(contributors.items(), key=itemgetter(1), reverse=True)]
   
-  async def get_server_top_weekly_contributors(self, farm_id: int) -> dict[int, int]:
+  async def get_server_top_weekly_contributors(self, farm_id: int) -> list[tuple[int, int]] | None:
     contributors = await self.get_server_contributors(farm_id)
-    return {int(k): v for k, v in sorted(contributors.items(), key=itemgetter(1), reverse=True)}
+    return [(int(k), v) for k, v in sorted(contributors.items(), key=itemgetter(1), reverse=True)]
+  
+
+
+
+
+  ################################
+  ### Farming Operations
+  ################################
 
 
 
