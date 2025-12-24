@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import discord
 
-from bot import ShroomBot, get_config_from_env
+from shroom_bot import ShroomBot, get_bot_config
 
-config = get_config_from_env()
+if __name__ == "__main__":
+    discord.utils.setup_logging(root=True)
 
-bot = ShroomBot(
-  config=config,
-  intents=discord.Intents.all(),
-  owner_ids=(751768586699276342, 759195783597129760)
-)
+    config = get_bot_config()
 
-bot.run(root_logger=True)
+    bot = ShroomBot(
+        config=config,
+        intents=discord.Intents.all(),
+        owner_ids=(751768586699276342, 759195783597129760),
+    )
+
+    bot.run(log_handler=None)
