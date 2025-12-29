@@ -10,9 +10,7 @@ if __name__ == "__main__":
     config = get_bot_config()
 
     bot = ShroomBot(
-        config=config,
-        intents=discord.Intents.all(),
-        owner_ids=(751768586699276342, 759195783597129760),
+        config=config, intents=discord.Intents.all(), owner_id=751768586699276342
     )
 
     bot.run(log_handler=None)

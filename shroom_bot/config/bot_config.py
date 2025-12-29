@@ -18,6 +18,13 @@ class BotConfig:
     dev_server_id: int = field(factory=get_env("DEV_SERVER_ID", 0))
     prefix: str = field(factory=get_env("PREFIX", "$"))
     maintenance_mode: bool = field(factory=get_env("MAINTENANCE_MODE", False))
+    lock_cleanup_interval_seconds: int = field(
+        factory=get_env("LOCK_CLEANUP_INTERVAL", 60)
+    )
+    lock_timeout: int = field(factory=get_env("LOCK_TIMEOUT", 60))
+    sqlite_db_path: Path = field(
+        factory=get_env("SQLITE_DB_PATH", Path("shroom_bot.db"))
+    )
 
     @classmethod
     def from_env(cls, dotenv_filename: str = ".env") -> BotConfig:

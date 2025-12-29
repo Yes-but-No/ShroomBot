@@ -1,3 +1,3 @@
-from .core import ShroomFarmGame
+from .core import Game
 
-__all__ = ("ShroomFarmGame",)
+__all__ = ("Game",)

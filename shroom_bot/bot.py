@@ -10,16 +10,18 @@ from discord.ext import commands, tasks
 
 from . import embeds
 from .config import BotConfig, constants
+from .db import Database
 from .errors import UnderMaintenance
-from .game import ShroomFarmGame
+from .game import Game
 from .utils import int_to_ordinal
 
 if TYPE_CHECKING:
-    from .game.models import ShroomFarm
+    from .game.models import Server
 
 
-# 12am SGT -> 4pm UTC
-SHROOM_RESET_TIME = datetime.time(hour=16, minute=0, tzinfo=datetime.UTC)
+BOT_TIMEZONE = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
+# Bot reset time should at midnight local time (UTC+8)
+BOT_RESET_TIME = datetime.time(hour=0, minute=0, tzinfo=BOT_TIMEZONE)
 
 _logger = logging.getLogger(__name__)
 
@@ -33,7 +35,9 @@ class ShroomBot(commands.Bot):
         self.prefix = config.prefix
         self.maintenance_mode = config.maintenance_mode
 
-        self.game = ShroomFarmGame()
+        self.database = Database(config.sqlite_db_path)
+
+        self.game = Game(self.database)
 
         self.presence_selector = True
 
@@ -60,22 +64,10 @@ class ShroomBot(commands.Bot):
     def run(self, *args, **kwargs):
         super().run(self.token, *args, **kwargs)
 
-    @tasks.loop(time=SHROOM_RESET_TIME)
-    async def reset_daily_farmed_loop(self):
-        _logger.info("Resetting daily farmed shrooms for all servers...")
-
-        for farm_id in self.game._farms.keys():
-            await self.game.acquire_farm_lock(farm_id)
-            try:
-                farm = await self.game.get_farm(farm_id)
-                if farm is not None:
-                    farm.farmed = 0
-            except Exception as e:
-                _logger.error(f"Failed to reset daily farmed for farm {farm_id}: {e}")
-            finally:
-                self.game.release_farm_lock(farm_id)
-
-        _logger.info("Daily farmed shrooms reset complete!")
+    @tasks.loop(time=BOT_RESET_TIME)
+    async def daily_reset_loop(self):
+        _logger.info("Cleaning up daily stats...")
+        await self.game.cleanup_old_stats(self.get_stats_date(), max_age_days=31)
 
     @tasks.loop(minutes=1)
     async def update_presence_loop(self):
@@ -85,25 +77,41 @@ class ShroomBot(commands.Bot):
                 status=discord.Status.idle,
             )
             return
+
+        _stats_date = self.get_stats_date()
         if self.presence_selector:
-            await self.change_presence(
-                activity=discord.Game(name="Farming Shrooms! 🍄"),
-                status=discord.Status.online,
+            _week_start = _stats_date - datetime.timedelta(days=_stats_date.weekday())
+            _week_end = _week_start + datetime.timedelta(days=6)
+            farmed_this_week = await self.game.get_global_timespan_farmed(
+                _week_start, _week_end
             )
+            msg = f"{farmed_this_week} mushroom farmed this week!"
         else:
-            await self.change_presence(
-                activity=discord.Game(name="in the forest! 🍄"),
-                status=discord.Status.online,
-            )
+            farmed_today = await self.game.get_global_daily_farmed(_stats_date)
+            msg = f"{farmed_today} mushroom farmed today!"
         self.presence_selector = not self.presence_selector
+        await self.change_presence(
+            activity=discord.Game(name=msg), status=discord.Status.online
+        )
 
     @update_presence_loop.before_loop
     async def before_update_presence_loop(self):
         await self.wait_until_ready()
 
+    async def _cleanup_unused_locks(self):
+        self.game.cleanup_server_locks(self.config.lock_timeout)
+
     async def setup_hook(self) -> None:
-        self.reset_daily_farmed_loop.start()
+        await self.database.connect()
+        await self.database.init_schema()
+
+        self.daily_reset_loop.start()
         self.update_presence_loop.start()
+
+        self.cleanup_unused_locks_loop = tasks.loop(
+            seconds=self.config.lock_cleanup_interval_seconds
+        )(self._cleanup_unused_locks)
+        self.cleanup_unused_locks_loop.start()
 
         for ext in constants.EXTENSIONS:
             _logger.info(f"Loading extension: {ext}")
@@ -111,6 +119,10 @@ class ShroomBot(commands.Bot):
                 await self.load_extension(ext)
             except Exception as e:
                 _logger.error(f"Failed to load extension {ext}: {e}")
+
+    async def close(self) -> None:
+        await self.database.close()
+        await super().close()
 
     async def on_tree_error(
         self,
@@ -150,20 +162,26 @@ class ShroomBot(commands.Bot):
         except Exception as e:
             _logger.error(f"Failed to send error message: {e}", exc_info=e)
 
+    def get_stats_date(self, now: datetime.datetime | None = None) -> datetime.date:
+        if now is None:
+            now = datetime.datetime.now(tz=BOT_TIMEZONE)
+        else:
+            now = now.astimezone(BOT_TIMEZONE)
+
+        return now.date()
+
     async def farm(
         self,
-        farm: ShroomFarm,
+        server: Server,
         message: discord.Message,
         user_id: int | None = None,
         amount: int = 1,
         ignore_last: bool = False,
     ) -> None:
-        await self.game.acquire_farm_lock(farm.server_id)
-
-        try:
+        async with self.game.acquire_server_lock(server.server_id):
             user_id = user_id or message.author.id
 
-            if not ignore_last and farm.last_farmer_id == user_id:
+            if not ignore_last and server.last_farmer_id == user_id:
                 try:
                     await message.add_reaction("❌")
                     await message.reply(
@@ -173,30 +191,47 @@ class ShroomBot(commands.Bot):
                     await message.channel.send(
                         message.author.mention, embed=embeds.cannot_farm(), silent=True
                     )
-                finally:
-                    self.game.release_farm_lock(farm.server_id)
-                    return
+                return
 
-            result = await self.game.update_server_farmed(
-                farm.server_id, user_id, amount
+            result = await self.game.farm_mushrooms(
+                server,
+                user_id,
+                self.get_stats_date(),
+                amount,
             )
+            await self.game.commit()
 
+            _embeds = []
             _embed = discord.Embed(
-                title="Mushrooms Farmed!",
-                description=f"{int_to_ordinal(result.farmed)} mushroom farmed today!",
+                title="Mushroom Farmed!",
+                description=f"{int_to_ordinal(result.daily_count)} mushroom farmed today!",
                 colour=discord.Colour.green(),
             )
 
+            # If daily goal not reached, show progress towards goal
+            if server.daily_goal > 0 and not result.daily_goal_reached:
+                _embed.description += f"\n{result.daily_goal - result.daily_count} more mushrooms till the daily goal!"  # type: ignore
+
+            _embeds.append(_embed)
+
+            # Check if daily goal was reached with this farm
+            if result.daily_goal_reached and result.awarding_daily_bonus:
+                goal_embed = embeds.daily_goal_reached()
+                _embeds.append(goal_embed)
+
+            if result.user_ranked_up:
+                rank_embed = embeds.user_ranked_up(result.user_rank_name)
+                _embeds.append(rank_embed)
+
             try:
                 await message.add_reaction("🍄")
-                await message.reply(embed=_embed, mention_author=False)
+                for embed in _embeds:
+                    await message.reply(embed=embed, mention_author=False)
             except discord.NotFound:
-                await message.channel.send(
-                    message.author.mention, embed=_embed, silent=True
-                )
-
-        finally:
-            self.game.release_farm_lock(farm.server_id)
+                for embed in _embeds:
+                    await message.channel.send(
+                        message.author.mention, embed=embed, silent=True
+                    )
 
     async def on_message(self, message: discord.Message) -> None:
         if message.author.bot:
@@ -205,15 +240,15 @@ class ShroomBot(commands.Bot):
         if message.content == "🍄":
             if message.guild is None:
                 return
-            farm = await self.game.get_farm(message.guild.id)
-            if farm is None or farm.farm_channel_id is None:
+            server = await self.game.get_server(message.guild.id)
+            if server is None or server.farm_channel_id is None:
                 _embed = embeds.farm_not_set_up()
-            elif farm.farm_channel_id != message.channel.id:
+            elif server.farm_channel_id != message.channel.id:
                 return
             elif self.under_maintenance:
                 _embed = embeds.under_maintenance()
             else:
-                await self.farm(farm, message)
+                await self.farm(server, message)
                 return
 
             try:
