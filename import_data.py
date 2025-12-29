@@ -29,6 +29,10 @@ if __name__ == "__main__":
     with Connection(config.sqlite_db_path) as conn:
         cursor = conn.cursor()
 
+        # DANGER: DROP EXISTING TABLES
+        cursor.execute("DROP TABLE IF EXISTS users")
+        cursor.execute("DROP TABLE IF EXISTS servers")
+
         schema_sql = SCHEMA_FILE.read_text()
         cursor.executescript(schema_sql)
 
