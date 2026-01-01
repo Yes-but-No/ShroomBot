@@ -106,7 +106,11 @@ class Debug(commands.Cog):
             return
 
         await self.bot.farm(
-            farm, ctx.message, user_id=user_id, amount=amount, ignore_last=True
+            farm.server_id,
+            ctx.message,
+            user_id=user_id,
+            amount=amount,
+            ignore_last=True,
         )
 
     @commands.command()

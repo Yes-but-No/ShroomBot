@@ -16,7 +16,7 @@ from .game import Game
 from .utils import int_to_ordinal
 
 if TYPE_CHECKING:
-    from .game.models import Server
+    pass
 
 
 BOT_TIMEZONE = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
@@ -172,14 +172,19 @@ class ShroomBot(commands.Bot):
 
     async def farm(
         self,
-        server: Server,
+        server_id: int,
         message: discord.Message,
         user_id: int | None = None,
         amount: int = 1,
         ignore_last: bool = False,
     ) -> None:
-        async with self.game.acquire_server_lock(server.server_id):
+        async with self.game.acquire_server_lock(server_id):
             user_id = user_id or message.author.id
+
+            server = await self.game.get_server(server_id)
+            if server is None:
+                # Should not happen, but just in case
+                return
 
             if not ignore_last and server.last_farmer_id == user_id:
                 try:
@@ -248,7 +253,7 @@ class ShroomBot(commands.Bot):
             elif self.under_maintenance:
                 _embed = embeds.under_maintenance()
             else:
-                await self.farm(server, message)
+                await self.farm(server.server_id, message)
                 return
 
             try:
